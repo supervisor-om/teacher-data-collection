@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="استمارة إلكترونية لتسجيل بيانات معلمي التربية الرياضية.">
-<meta name="theme-color" content="#0f4c81">
+<meta name="theme-color" content="#ffffff">
 <title>استمارة بيانات معلمي التربية الرياضية</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,34 +12,37 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
 
 <style>
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  رموز التصميم
- * ------------------------------------------------------------------ */
+ *  الكحلي مخصَّص للتفاعل وحده: التركيز، الزرّ، الاختيار، الروابط، التقدّم.
+ *  ما ليس تفاعلياً — أرقام الأقسام، الشعار، اللافتات — رمادي أو حبري.
+ * ==================================================================== */
 :root{
   color-scheme: light;
-  --bg:#eceff3;
   --surface:#ffffff;
-  --line:#dfe3e9;
-  --line-2:#cbd2db;
-  --ink:#151d28;
-  --ink-2:#586274;
-  --ink-3:#8a94a3;
+  --muted:#f7f8fa;
+  --line:#e4e7ec;
+  --line-2:#c9d0d9;
+  --ink:#141c26;
+  --ink-2:#5a6473;
+  --ink-3:#8d97a4;
   --brand:#0f4c81;
   --brand-2:#0c3d68;
   --brand-tint:#eaf1f8;
   --danger:#b42318;
+  --danger-line:#f0c9c5;
   --danger-tint:#fdf2f1;
   --ok:#0a6b4f;
   --r:4px;
   --ctrl-h:42px;
-  --page:920px;
+  --col:820px;
 }
 
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;
-  background:var(--bg);
+  background:var(--surface);
   color:var(--ink);
   font-family:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;
   font-size:15px;
@@ -48,68 +51,67 @@ body{
 }
 [hidden]{display:none !important}
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  الشريط العلوي
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 .topbar{
   position:-webkit-sticky; position:sticky; top:0; z-index:20;
-  background:var(--surface);
-  border-bottom:1px solid var(--line);
+  background:var(--surface); border-bottom:1px solid var(--line);
 }
 .topbar__in{
-  max-width:var(--page); margin:0 auto; padding:0 24px;
-  height:60px; display:flex; align-items:center; justify-content:space-between;
+  max-width:var(--col); margin:0 auto; padding:0 28px;
+  height:58px; display:flex; align-items:center; justify-content:space-between;
 }
 .brand{display:flex; align-items:center; min-width:0}
-/* شعار الجهة يوضع هنا: استبدل هذا المربّع بوسم <img> بارتفاع 34px */
+/* شعار الجهة يوضع هنا: استبدل المربّع بوسم <img> بارتفاع 32px */
 .brand__mark{
-  flex:none; width:34px; height:34px; border-radius:var(--r);
-  background:var(--brand); color:#fff;
+  flex:none; width:32px; height:32px; border-radius:var(--r);
+  background:var(--ink); color:#fff;
   display:flex; align-items:center; justify-content:center;
-  font-size:13px; font-weight:600; letter-spacing:.02em;
-  margin-left:12px;
+  font-size:12.5px; font-weight:600; margin-left:11px;
 }
 .brand__text{min-width:0}
 .brand__title{
-  font-size:14.5px; font-weight:600; line-height:1.3;
+  font-size:14px; font-weight:600; line-height:1.3;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.brand__sub{font-size:12px; color:var(--ink-3); line-height:1.3}
-.topbar__tag{
-  flex:none; font-size:12px; color:var(--ink-2);
-  border:1px solid var(--line); border-radius:999px; padding:4px 12px;
-}
+.brand__sub{font-size:11.5px; color:var(--ink-3); line-height:1.3}
+.topbar__tag{flex:none; font-size:11.5px; color:var(--ink-3)}
 
-/* ------------------------------------------------------------------ *
- *  الورقة
- * ------------------------------------------------------------------ */
-.wrap{max-width:var(--page); margin:0 auto; padding:28px 24px 72px}
-.sheet{
-  background:var(--surface);
-  border:1px solid var(--line);
-  border-radius:6px;
-  box-shadow:0 1px 2px rgba(16,24,40,.04);
-}
-.sheet__head{padding:28px 32px 26px; border-bottom:1px solid var(--line)}
-.sheet__title{margin:0; font-size:22px; font-weight:600; letter-spacing:-.01em}
-.sheet__desc{margin:9px 0 0; font-size:14px; color:var(--ink-2); max-width:62ch}
+/* ==================================================================== *
+ *  عمود المستند
+ * ==================================================================== */
+.wrap{max-width:var(--col); margin:0 auto; padding:0 28px 64px}
+
+.doc__head{padding:46px 0 34px}
+.doc__title{margin:0; font-size:26px; font-weight:600; letter-spacing:-.015em; line-height:1.35}
+.doc__desc{margin:11px 0 0; font-size:15px; color:var(--ink-2); max-width:60ch}
 
 .notice{
   display:flex; align-items:flex-start;
-  margin-top:20px; padding:11px 14px;
-  background:var(--brand-tint); border:1px solid #d5e2ef;
-  border-radius:var(--r); font-size:13px; color:var(--brand-2);
+  margin-top:24px; padding:12px 15px;
+  background:var(--muted); border:1px solid var(--line);
+  border-radius:var(--r); font-size:13px; color:var(--ink-2);
 }
-.notice svg{flex:none; margin-left:9px; margin-top:2px}
+.notice svg{flex:none; margin-left:10px; margin-top:3px; color:var(--ink-3)}
 
-/* ------------------------------------------------------------------ *
- *  اختيار نوع المدرسة
- * ------------------------------------------------------------------ */
-.picker{padding:26px 32px}
-.picker__label{
-  display:block; font-size:13px; font-weight:600; color:var(--ink-2);
-  margin-bottom:12px;
+.draft{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  margin-top:20px; padding:11px 15px;
+  background:var(--muted); border:1px solid var(--line);
+  border-radius:var(--r); font-size:13px; color:var(--ink-2);
 }
+.linkbtn{
+  background:none; border:0; padding:0; font:inherit; font-size:13px;
+  color:var(--brand); cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+}
+.linkbtn:hover{color:var(--brand-2)}
+
+/* ==================================================================== *
+ *  اختيار نوع المدرسة
+ * ==================================================================== */
+.picker{padding:30px 0; border-top:1px solid var(--line)}
+.picker__label{display:block; font-size:12.5px; font-weight:600; letter-spacing:.03em; color:var(--ink-3); margin-bottom:13px}
 .choice{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 @media(max-width:560px){.choice{grid-template-columns:1fr}}
 .choice__item{position:relative; margin:0}
@@ -120,7 +122,7 @@ body{
   padding:14px 16px; cursor:pointer;
   transition:border-color .15s, background-color .15s;
 }
-.choice__box:hover{border-color:#b3bcc8}
+.choice__box:hover{border-color:#aab3bf}
 .choice__name{display:block; font-size:14.5px; font-weight:600}
 .choice__hint{display:block; font-size:12.5px; color:var(--ink-3); margin-top:3px}
 .choice__item input:checked + .choice__box{
@@ -129,25 +131,39 @@ body{
 }
 .choice__item input:focus-visible + .choice__box{outline:2px solid var(--brand); outline-offset:2px}
 
-/* ------------------------------------------------------------------ *
- *  الأقسام والشبكة
- * ------------------------------------------------------------------ */
-.section{border:0; margin:0; padding:26px 32px 6px; border-top:1px solid var(--line)}
-.section__legend{
-  display:flex; align-items:center; float:none;
-  width:100%; padding:0; margin-bottom:20px;
+/* ==================================================================== *
+ *  ملخّص الأخطاء
+ * ==================================================================== */
+.summary{
+  margin-top:26px; padding:16px 18px;
+  background:var(--danger-tint);
+  border:1px solid var(--danger-line); border-right:3px solid var(--danger);
+  border-radius:var(--r);
 }
-.section__num{
-  flex:none; width:22px; height:22px; border-radius:3px;
-  background:var(--brand); color:#fff;
-  font-size:12px; font-weight:600;
-  display:flex; align-items:center; justify-content:center;
-  margin-left:10px;
-}
-.section__name{flex:none; font-size:14px; font-weight:600; color:var(--ink)}
-.section__rule{flex:1; height:1px; background:var(--line); margin-right:14px}
+.summary:focus{outline:2px solid var(--danger); outline-offset:2px}
+.summary__title{margin:0; font-size:14px; font-weight:600; color:#8b1f18}
+.summary__list{margin:11px 0 0; padding:0 18px 0 0; font-size:13.5px; line-height:1.9}
+.summary__list a{color:#8b1f18; text-decoration:underline; text-underline-offset:2px}
+.summary__list a:hover{text-decoration-thickness:2px}
 
-.grid{display:grid; grid-template-columns:repeat(12,1fr); gap:18px 20px}
+/* ==================================================================== *
+ *  الأقسام والشبكة
+ * ==================================================================== */
+.section{border:0; margin:0; padding:32px 0 8px; border-top:1px solid var(--line)}
+.section__legend{display:flex; align-items:center; float:none; width:100%; padding:0; margin-bottom:22px}
+.section__num{
+  flex:none; font-size:12.5px; font-weight:600; color:var(--ink-3);
+  font-variant-numeric:tabular-nums; margin-left:9px;
+}
+.section__name{flex:none; font-size:12.5px; font-weight:600; letter-spacing:.03em; color:var(--ink-3)}
+.section__rule{flex:1; height:1px; background:var(--line); margin:0 14px}
+.section__tick{
+  flex:none; color:var(--ok); opacity:0;
+  transition:opacity .2s; display:flex; align-items:center;
+}
+.section.is-complete .section__tick{opacity:1}
+
+.grid{display:grid; grid-template-columns:repeat(12,1fr); gap:20px 20px}
 .col-3{grid-column:span 3}
 .col-4{grid-column:span 4}
 .col-6{grid-column:span 6}
@@ -158,15 +174,15 @@ body{
   .col-8{grid-column:span 12}
 }
 @media(max-width:560px){
-  .grid{grid-template-columns:1fr; gap:16px}
+  .grid{grid-template-columns:1fr; gap:17px}
   .col-3,.col-4,.col-6,.col-8,.col-12{grid-column:1 / -1}
 }
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  الحقول
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 .field{min-width:0}
-.field__label{display:block; font-size:13px; font-weight:500; color:var(--ink-2); margin-bottom:7px}
+.field__label{display:block; font-size:13px; font-weight:500; color:var(--ink); margin-bottom:7px}
 .field__opt{color:var(--ink-3); font-weight:400}
 .field__help{margin:6px 0 0; font-size:12px; color:var(--ink-3); line-height:1.55}
 .field__error{margin:6px 0 0; font-size:12px; font-weight:500; color:var(--danger)}
@@ -180,12 +196,12 @@ body{
   transition:border-color .15s, box-shadow .15s, background-color .15s;
 }
 .control::placeholder{color:#a9b2be}
-.control:hover{border-color:#b3bcc8}
+.control:hover{border-color:#aab3bf}
 .control:focus{outline:0; border-color:var(--brand); box-shadow:0 0 0 3px rgba(15,76,129,.13)}
 
 select.control{
   cursor:pointer; padding-left:36px;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%23586274' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%235a6473' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:left 12px center;
 }
 /* نصّ «اختر…» النائب يبقى باهتاً حتى يقع الاختيار — في الحقول
@@ -203,20 +219,17 @@ input[type=number].control{-moz-appearance:textfield}
 .field.is-invalid .control{border-color:var(--danger); background:var(--danger-tint)}
 .field.is-invalid .control:focus{box-shadow:0 0 0 3px rgba(180,35,24,.13)}
 
-/* ------------------------------------------------------------------ *
- *  التذييل والأزرار
- * ------------------------------------------------------------------ */
-.banner{
-  margin:22px 32px 0; padding:12px 14px;
-  border:1px solid #f0c9c5; background:var(--danger-tint);
-  color:#8b1f18; font-size:13.5px; border-radius:var(--r);
-}
+/* ==================================================================== *
+ *  شريط الإجراء الملتصق
+ * ==================================================================== */
 .actions{
+  position:-webkit-sticky; position:sticky; bottom:0; z-index:15;
   display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
-  margin-top:26px; padding:18px 32px;
-  border-top:1px solid var(--line); background:#fafbfc;
-  border-radius:0 0 6px 6px;
+  margin-top:38px; padding:14px 0;
+  background:var(--surface); border-top:1px solid var(--line);
+  box-shadow:0 -10px 22px -14px rgba(16,24,40,.22);
 }
+.actions__progress{position:absolute; top:-1px; right:0; height:2px; width:0; background:var(--brand); transition:width .25s ease}
 .actions__meta{font-size:13px; color:var(--ink-3); font-variant-numeric:tabular-nums}
 
 .btn{
@@ -231,7 +244,7 @@ input[type=number].control{-moz-appearance:textfield}
 .btn:focus-visible{outline:2px solid var(--brand); outline-offset:2px}
 .btn:disabled{opacity:.6; cursor:not-allowed}
 .btn--ghost{color:var(--brand); background:var(--surface); border-color:var(--line-2)}
-.btn--ghost:hover:not(:disabled){background:#f4f6f9; border-color:#b3bcc8}
+.btn--ghost:hover:not(:disabled){background:var(--muted); border-color:#aab3bf}
 
 .spinner{
   flex:none; width:15px; height:15px; margin-left:9px;
@@ -240,39 +253,38 @@ input[type=number].control{-moz-appearance:textfield}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  شاشة التأكيد
- * ------------------------------------------------------------------ */
-.done{padding:60px 32px; text-align:center}
+ * ==================================================================== */
+.done{padding:72px 0; text-align:center; border-top:1px solid var(--line)}
 .done__mark{
   display:inline-flex; align-items:center; justify-content:center;
-  width:46px; height:46px; border-radius:6px;
-  background:#e7f4ef; color:var(--ok);
+  width:46px; height:46px; border-radius:6px; background:#e7f4ef; color:var(--ok);
 }
 .done__title{margin:20px 0 0; font-size:20px; font-weight:600}
 .done__text{margin:9px 0 0; font-size:14px; color:var(--ink-2)}
-.done__ref{
-  display:inline-block; margin-top:26px; padding:13px 22px;
-  border:1px dashed var(--line-2); border-radius:var(--r); background:#fafbfc;
-}
+.done__ref{display:inline-block; margin-top:26px; padding:13px 22px; border:1px dashed var(--line-2); border-radius:var(--r); background:var(--muted)}
 .done__ref span{font-size:12px; color:var(--ink-3)}
-.done__ref b{
-  display:block; margin-top:4px; direction:ltr;
-  font-size:17px; font-weight:600; letter-spacing:.09em; font-variant-numeric:tabular-nums;
-}
+.done__ref b{display:block; margin-top:4px; direction:ltr; font-size:17px; font-weight:600; letter-spacing:.09em; font-variant-numeric:tabular-nums}
 .done__time{margin:14px 0 0; font-size:12.5px; color:var(--ink-3)}
 .done__again{margin-top:28px}
 
-.foot{
-  max-width:var(--page); margin:0 auto; padding:18px 24px 0;
-  font-size:12px; color:var(--ink-3); text-align:center;
-}
+.foot{margin:0; padding:22px 0 0; border-top:1px solid var(--line); font-size:12px; color:var(--ink-3); text-align:center}
 
+/* ==================================================================== *
+ *  الجوّال
+ *  16px حدّ أدنى لنصّ الحقول: سفاري iOS يُقرِّب الصفحة تلقائياً عند لمس
+ *  أي حقل أصغر من ذلك ثمّ لا يعيدها — تسعة عشر حقلاً، تسع عشرة قفزة.
+ * ==================================================================== */
+@media(max-width:640px){
+  .control{font-size:16px; height:46px}
+  .wrap,.topbar__in{padding-left:20px; padding-right:20px}
+  .doc__head{padding-top:34px}
+  .doc__title{font-size:22px}
+}
 @media(max-width:560px){
-  .sheet__head,.picker,.section,.actions{padding-left:20px; padding-right:20px}
-  .banner{margin-left:20px; margin-right:20px}
-  .actions{justify-content:stretch}
-  .actions__meta{width:100%; margin-bottom:12px; text-align:center}
+  .actions{justify-content:stretch; padding-bottom:16px}
+  .actions__meta{width:100%; margin-bottom:11px; text-align:center}
   .btn{width:100%}
 }
 
@@ -297,17 +309,23 @@ input[type=number].control{-moz-appearance:textfield}
 </header>
 
 <main class="wrap">
-  <div class="sheet" id="sheet">
+  <div id="doc">
 
-    <div class="sheet__head">
-      <h1 class="sheet__title">تسجيل بيانات معلّمي التربية الرياضية</h1>
-      <p class="sheet__desc">تُعبَّأ الاستمارة مرّة واحدة لكل معلّم. اختر نوع المدرسة أوّلاً لتظهر الحقول الخاصّة بها.</p>
+    <div class="doc__head">
+      <h1 class="doc__title">تسجيل بيانات معلّمي التربية الرياضية</h1>
+      <p class="doc__desc">تُعبَّأ الاستمارة مرّة واحدة لكل معلّم. اختر نوع المدرسة أوّلاً لتظهر الحقول الخاصّة بها.</p>
+
       <div class="notice">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
           <path d="M8 7.2v4M8 4.7v.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
         <span>جميع الحقول مطلوبة ما لم تُوسَم بـ «اختياري». راجع البيانات قبل الإرسال — لا يمكن تعديلها بعده.</span>
+      </div>
+
+      <div class="draft" id="draft" hidden>
+        <span>استُعيدت مسودّة محفوظة على هذا الجهاز — <b id="draft-when"></b></span>
+        <button type="button" class="linkbtn" id="discard">تجاهل والبدء من جديد</button>
       </div>
     </div>
 
@@ -332,17 +350,22 @@ input[type=number].control{-moz-appearance:textfield}
         </div>
       </div>
 
+      <div class="summary" id="summary" role="alert" tabindex="-1" hidden>
+        <h2 class="summary__title" id="summary-title"></h2>
+        <ul class="summary__list" id="summary-list"></ul>
+      </div>
+
       <div id="fields" hidden></div>
-      <p class="banner" id="banner" hidden></p>
 
       <div class="actions" id="actions" hidden>
+        <span class="actions__progress" id="progress" aria-hidden="true"></span>
         <span class="actions__meta" id="meta"></span>
         <button type="submit" class="btn" id="submit">إرسال الاستمارة</button>
       </div>
     </form>
   </div>
 
-  <section class="sheet done" id="done" hidden>
+  <section class="done" id="done" hidden>
     <div class="done__mark">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -364,7 +387,7 @@ input[type=number].control{-moz-appearance:textfield}
 </main>
 
 <noscript>
-  <p style="max-width:920px;margin:24px auto;padding:14px 18px;background:#fdf2f1;border:1px solid #f0c9c5;color:#8b1f18;border-radius:4px">
+  <p style="max-width:820px;margin:24px auto;padding:14px 18px;background:#fdf2f1;border:1px solid #f0c9c5;color:#8b1f18;border-radius:4px">
     هذه الاستمارة تحتاج إلى تفعيل JavaScript في المتصفّح.
   </p>
 </noscript>
@@ -385,9 +408,9 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  قوائم الخيارات
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
 
 const OPT = {
@@ -406,11 +429,11 @@ const OPT = {
   yesNo:      ['نعم','لا يوجد']
 };
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  وصف الحقول
- *  name = مفتاح الحقل في قاعدة البيانات (لا يُغيَّر — السجلات السابقة تعتمده)
+ *  name  = مفتاح الحقل في قاعدة البيانات (لا يُغيَّر — السجلات السابقة تعتمده)
  *  label = النصّ المعروض إن اختلف عن المفتاح
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 const GOV = [
   { title: 'بيانات المدرسة', fields: [
     { id:'schoolName_gov',   name:'المدرسة', col:8, ph:'اكتب اسم المدرسة كاملاً', help:'مثال: انس بن النظر (7-10)' },
@@ -485,9 +508,9 @@ const KEYS = [
   'الدرجة المالية','الرقم المدني','الجامعة','تاريخ الميلاد','العنوان الدائم','البريد الالكتروني'
 ];
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  البناء
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 const ESC = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
 
@@ -525,19 +548,23 @@ function renderField(f) {
   );
 }
 
+const TICK =
+  `<span class="section__tick" title="اكتمل"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">` +
+  `<path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+
 const renderSection = (sec, i) =>
   `<fieldset class="section">` +
     `<legend class="section__legend">` +
       `<span class="section__num">${i + 1}</span>` +
       `<span class="section__name">${esc(sec.title)}</span>` +
-      `<span class="section__rule"></span>` +
+      `<span class="section__rule"></span>${TICK}` +
     `</legend>` +
     `<div class="grid">${sec.fields.map(renderField).join('')}</div>` +
   `</fieldset>`;
 
-/* ------------------------------------------------------------------ *
+/* ==================================================================== *
  *  التحقّق
- * ------------------------------------------------------------------ */
+ * ==================================================================== */
 function messageFor(el) {
   const v = el.validity;
   if (v.valueMissing)   return 'هذا الحقل مطلوب';
@@ -545,6 +572,11 @@ function messageFor(el) {
   if (v.rangeUnderflow) return `القيمة يجب ألّا تقلّ عن ${el.min}`;
   if (v.rangeOverflow)  return `القيمة يجب ألّا تزيد عن ${el.max}`;
   return 'القيمة المُدخلة غير صالحة';
+}
+
+function labelOf(el) {
+  const l = document.querySelector(`label[for="${el.id}"]`);
+  return l ? l.textContent.replace('(اختياري)', '').trim() : el.name;
 }
 
 function mark(el, valid) {
@@ -558,66 +590,159 @@ function mark(el, valid) {
   }
 }
 
-/* ------------------------------------------------------------------ *
- *  الربط
- * ------------------------------------------------------------------ */
-const form    = document.getElementById('form');
-const host    = document.getElementById('fields');
-const actions = document.getElementById('actions');
-const meta    = document.getElementById('meta');
-const banner  = document.getElementById('banner');
-const submit  = document.getElementById('submit');
-const sheet   = document.getElementById('sheet');
-const done    = document.getElementById('done');
+/* ==================================================================== *
+ *  العناصر
+ * ==================================================================== */
+const form     = document.getElementById('form');
+const host     = document.getElementById('fields');
+const actions  = document.getElementById('actions');
+const meta     = document.getElementById('meta');
+const progress = document.getElementById('progress');
+const summary  = document.getElementById('summary');
+const sumTitle = document.getElementById('summary-title');
+const sumList  = document.getElementById('summary-list');
+const submit   = document.getElementById('submit');
+const doc      = document.getElementById('doc');
+const done     = document.getElementById('done');
+const draftBar = document.getElementById('draft');
 
 const controls = () => Array.from(host.querySelectorAll('.control'));
+const goTo = (el) => {
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.focus({ preventScroll: true });
+};
 
+/* ==================================================================== *
+ *  التقدّم وعلامات اكتمال الأقسام
+ * ==================================================================== */
 function updateMeta() {
-  const required = controls().filter((c) => c.required);
-  const filled   = required.filter((c) => c.value.trim() !== '').length;
-  meta.textContent = required.length
-    ? `مكتمل ${filled} من ${required.length} حقلاً مطلوباً`
-    : '';
+  let total = 0, filled = 0;
+
+  for (const fs of host.querySelectorAll('.section')) {
+    const required = Array.from(fs.querySelectorAll('.control')).filter((c) => c.required);
+    const ok = required.filter((c) => c.value.trim() !== '').length;
+    total += required.length;
+    filled += ok;
+    fs.classList.toggle('is-complete', required.length > 0 && ok === required.length);
+  }
+
+  meta.textContent = total ? `مكتمل ${filled} من ${total} حقلاً مطلوباً` : '';
+  progress.style.width = total ? `${(filled / total * 100).toFixed(1)}%` : '0';
 }
 
+/* ==================================================================== *
+ *  المسودّة
+ *  تُحفظ محلياً على جهاز المعلّم وحده. تحمل بيانات شخصية، فتنتهي
+ *  صلاحيتها بعد اثنتَي عشرة ساعة وتُمحى فور نجاح الإرسال.
+ * ==================================================================== */
+const DRAFT_KEY = 'tdc-draft-v1';
+const DRAFT_TTL = 12 * 60 * 60 * 1000;
+
+const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} };
+
+function writeDraft() {
+  const type = form.querySelector('input[name="نوع المدرسة"]:checked');
+  if (!type) return;
+  const values = {};
+  for (const el of controls()) if (el.value) values[el.id] = el.value;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ type: type.value, values, at: Date.now() }));
+  } catch (e) {
+    /* التصفّح الخاص أو امتلاء الحصّة — المسودّة رفاهية، لا تُعطِّل النموذج */
+  }
+}
+
+let saveTimer;
+const scheduleSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(writeDraft, 400); };
+
+function renderForm(type) {
+  host.innerHTML = (type === 'حكومية' ? GOV : PRIVATE).map(renderSection).join('');
+  host.hidden = false;
+  actions.hidden = false;
+}
+
+function restoreDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return; }
+  if (!d || !d.type || !d.at || Date.now() - d.at > DRAFT_TTL) { clearDraft(); return; }
+
+  const radio = form.querySelector(`input[name="نوع المدرسة"][value="${d.type}"]`);
+  if (!radio) return;
+
+  radio.checked = true;
+  renderForm(d.type);
+  for (const el of controls()) {
+    const v = (d.values || {})[el.id];
+    if (v == null) continue;
+    el.value = v;
+    if (el.tagName === 'SELECT') el.classList.toggle('is-empty', el.value === '');
+  }
+  updateMeta();
+
+  document.getElementById('draft-when').textContent =
+    new Date(d.at).toLocaleString('ar-OM', { dateStyle: 'medium', timeStyle: 'short' });
+  draftBar.hidden = false;
+}
+
+/* ==================================================================== *
+ *  الأحداث
+ * ==================================================================== */
 form.addEventListener('change', (e) => {
   if (e.target.name === 'نوع المدرسة') {
-    host.innerHTML = (e.target.value === 'حكومية' ? GOV : PRIVATE).map(renderSection).join('');
-    host.hidden = false;
-    actions.hidden = false;
-    banner.hidden = true;
+    renderForm(e.target.value);
+    summary.hidden = true;
   } else if (e.target.classList.contains('control')) {
     if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', e.target.value === '');
     mark(e.target, e.target.checkValidity());
   }
   updateMeta();
+  scheduleSave();
 });
 
 form.addEventListener('input', (e) => {
   if (!e.target.classList.contains('control')) return;
   const wrap = e.target.closest('[data-field]');
-  if (wrap && wrap.classList.contains('is-invalid') && e.target.checkValidity()) {
-    mark(e.target, true);
-  }
+  if (wrap && wrap.classList.contains('is-invalid') && e.target.checkValidity()) mark(e.target, true);
   updateMeta();
+  scheduleSave();
 });
+
+summary.addEventListener('click', (e) => {
+  const a = e.target.closest('a');
+  if (!a) return;
+  e.preventDefault();
+  const el = document.getElementById(a.getAttribute('href').slice(1));
+  if (el) goTo(el);
+});
+
+document.getElementById('discard').addEventListener('click', () => {
+  clearDraft();
+  location.reload();
+});
+
+document.getElementById('again').addEventListener('click', () => location.reload());
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  banner.hidden = true;
+  summary.hidden = true;
 
-  let firstInvalid = null;
+  const invalid = [];
   for (const el of controls()) {
     const ok = el.checkValidity();
     mark(el, ok);
-    if (!ok && !firstInvalid) firstInvalid = el;
+    if (!ok) invalid.push(el);
   }
 
-  if (firstInvalid) {
-    banner.hidden = false;
-    banner.textContent = 'تعذّر الإرسال: راجع الحقول المُعلَّمة بالأحمر أدناه.';
-    firstInvalid.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    firstInvalid.focus({ preventScroll: true });
+  if (invalid.length) {
+    sumTitle.textContent = invalid.length === 1
+      ? 'تعذّر الإرسال — حقل واحد يحتاج مراجعة'
+      : `تعذّر الإرسال — ${invalid.length} حقول تحتاج مراجعة`;
+    sumList.innerHTML = invalid
+      .map((el) => `<li><a href="#${el.id}">${esc(labelOf(el))} — ${esc(messageFor(el))}</a></li>`)
+      .join('');
+    summary.hidden = false;
+    summary.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    summary.focus({ preventScroll: true });
     return;
   }
 
@@ -633,22 +758,25 @@ form.addEventListener('submit', async (e) => {
 
   try {
     const ref = await addDoc(collection(db, 'teachers'), record);
+    clearDraft();
     document.getElementById('ref').textContent = 'TDC-' + ref.id.slice(0, 6).toUpperCase();
     document.getElementById('stamp').textContent =
       new Date().toLocaleString('ar-OM', { dateStyle: 'long', timeStyle: 'short' });
-    sheet.hidden = true;
+    doc.hidden = true;
     done.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     console.error('[form] فشل الإرسال:', err);
-    banner.hidden = false;
-    banner.textContent = 'تعذّر إرسال البيانات. تحقّق من اتصال الإنترنت ثمّ أعد المحاولة.';
+    sumTitle.textContent = 'تعذّر إرسال البيانات';
+    sumList.innerHTML = '<li>تحقّق من اتصال الإنترنت ثمّ أعد المحاولة. بياناتك محفوظة في هذه الصفحة.</li>';
+    summary.hidden = false;
+    summary.scrollIntoView({ block: 'center', behavior: 'smooth' });
     submit.disabled = false;
     submit.textContent = 'إرسال الاستمارة';
   }
 });
 
-document.getElementById('again').addEventListener('click', () => location.reload());
+restoreDraft();
 </script>
 </body>
 </html>
