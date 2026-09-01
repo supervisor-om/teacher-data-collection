@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="استمارة إلكترونية لتسجيل بيانات معلمي التربية الرياضية.">
+<meta name="description" content="استمارة بيانات المعلمين لمعلمي مادة الرياضة المدرسية/التربية البدنية والصحية.">
 <meta name="theme-color" content="#ffffff">
-<title>استمارة بيانات معلمي التربية الرياضية</title>
+<title>استمارة بيانات المعلمين لمعلمي مادة الرياضة المدرسية/التربية البدنية والصحية</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -75,7 +75,10 @@ body{
   font-size:14px; font-weight:600; line-height:1.3;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.brand__sub{font-size:11.5px; color:var(--ink-3); line-height:1.3}
+.brand__sub{
+  font-size:11.5px; color:var(--ink-3); line-height:1.3;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 .topbar__tag{flex:none; font-size:11.5px; color:var(--ink-3)}
 
 /* ==================================================================== *
@@ -282,6 +285,8 @@ input[type=number].control{-moz-appearance:textfield}
   .doc__title{font-size:22px}
 }
 @media(max-width:560px){
+  /* اسم المادة طويل: يُفسَح له عرض الشريط كلّه على الجوّال */
+  .topbar__tag{display:none}
   .actions{justify-content:stretch; padding-bottom:16px}
   .actions__meta{width:100%; margin-bottom:11px; text-align:center}
   .btn{width:100%}
@@ -297,10 +302,10 @@ input[type=number].control{-moz-appearance:textfield}
 <header class="topbar">
   <div class="topbar__in">
     <div class="brand">
-      <div class="brand__mark" aria-hidden="true">ت ر</div>
+      <div class="brand__mark" aria-hidden="true">ر م</div>
       <div class="brand__text">
         <div class="brand__title">استمارة بيانات المعلمين</div>
-        <div class="brand__sub">التربية الرياضية</div>
+        <div class="brand__sub">الرياضة المدرسية/التربية البدنية والصحية</div>
       </div>
     </div>
     <span class="topbar__tag">نموذج إلكتروني</span>
@@ -311,7 +316,7 @@ input[type=number].control{-moz-appearance:textfield}
   <div id="doc">
 
     <div class="doc__head">
-      <h1 class="doc__title">تسجيل بيانات معلّمي التربية الرياضية</h1>
+      <h1 class="doc__title">استمارة بيانات المعلمين لمعلمي مادة الرياضة المدرسية/التربية البدنية والصحية</h1>
       <p class="doc__desc">تُعبَّأ الاستمارة مرّة واحدة لكل معلّم. اختر نوع المدرسة أوّلاً لتظهر الحقول الخاصّة بها.</p>
 
       <div class="notice">
