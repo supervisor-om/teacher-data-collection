@@ -492,7 +492,8 @@ const PRIVATE = [
     { id:'teachingLanguage_private',name:'اللغة التي يتم تدريس بها المادة', label:'لغة تدريس المادة', col:4, type:'select', ph:'اختر اللغة', options:OPT.language }
   ]},
   { title: 'بيانات إضافية', fields: [
-    { id:'appointmentApproval_private', name:'الموافقة على التعيين', col:4, type:'select', ph:'اختر الحالة', options:OPT.approval },
+    { id:'appointmentApproval_private', name:'الموافقة على التعيين', col:4, type:'select', ph:'اختر الحالة', options:OPT.approval,
+      help:'اختر «قيد الإجراءات» إذا كانت لديك موافقة مبدئية.' },
     { id:'sport11_private',             name:'رياضة (11)', col:4, type:'select', ph:'الرجاء التحديد', options:OPT.yesNo },
     { id:'sport12_private',             name:'رياضة (12)', col:4, type:'select', ph:'الرجاء التحديد', options:OPT.yesNo }
   ]}
