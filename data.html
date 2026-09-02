@@ -164,7 +164,7 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
         </div>
         <div>
           <div class="brand__title">البيانات المجمّعة</div>
-          <div class="brand__sub">الرياضة المدرسية/التربية البدنية والصحية</div>
+          <div class="brand__sub" id="scope">—</div>
         </div>
       </div>
       <div class="topbar__act">
@@ -183,6 +183,7 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
       </div>
       <input type="search" class="control search" id="q" placeholder="بحث في الاسم أو المدرسة أو الرقم…" aria-label="بحث">
       <select class="control" id="school" aria-label="تصفية بالمدرسة"><option value="">كل المدارس</option></select>
+      <span id="sup-wrap" hidden><select class="control" id="sup" aria-label="تصفية بالمشرف"><option value="">كل المشرفين</option></select></span>
       <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
     </div>
 
@@ -221,8 +222,19 @@ import { getFirestore, collection, getDocs }
  *  البوّابة تمنع الوصول العابر لمن يعثر على الرابط، وليست بديلاً عن قواعد
  *  الأمان في قاعدة البيانات.
  * ==================================================================== */
-const CODE_HASH = '8d1d894f28ad2a5f8ecc4ad8230dfcfd5b2ee8e71ac3634ec89f40de605ca3a1';
-const SESSION_KEY = 'tdc-unlocked';
+/* === SUPERVISORS:BEGIN === */
+const SUPERVISORS = [
+  { id: 'asad', name: 'أسعد الخصيبي',
+    hash: '20a7c4b4c2148f5f22e713124f1c4f95701c5b5b42d699a1fa3eb033d9816c69' }
+];
+const ADMIN_HASH = '8d1d894f28ad2a5f8ecc4ad8230dfcfd5b2ee8e71ac3634ec89f40de605ca3a1';
+/* === SUPERVISORS:END === */
+
+const SESSION_KEY = 'tdc-scope';
+
+/* رمز المشرف يفتح جدوله وحده، ورمز المشرف العام يفتح الجميع.
+   scope = null أي إداري، أو اسم المشرف المقصور عليه. */
+let scope = null;
 
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -235,6 +247,8 @@ const app  = document.getElementById('app');
 function unlock() {
   gate.hidden = true;
   app.hidden = false;
+  el('scope').textContent = scope ? ('معلّمو ' + scope) : 'كل المشرفين';
+  el('sup-wrap').hidden = !!scope;
   load();
 }
 
@@ -242,18 +256,22 @@ document.getElementById('gate-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = document.getElementById('gate-err');
   const input = document.getElementById('code');
+  let h;
   try {
-    if (await sha256(input.value.trim()) !== CODE_HASH) {
-      err.textContent = 'رمز غير صحيح.';
-      input.value = '';
-      input.focus();
-      return;
-    }
+    h = await sha256(input.value.trim());
   } catch (e2) {
     err.textContent = 'تعذّر التحقّق في هذا المتصفّح.';
     return;
   }
-  try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e3) {}
+  const who = SUPERVISORS.find((s) => s.hash === h);
+  if (!who && h !== ADMIN_HASH) {
+    err.textContent = 'رمز غير صحيح.';
+    input.value = '';
+    input.focus();
+    return;
+  }
+  scope = who ? who.name : null;
+  try { sessionStorage.setItem(SESSION_KEY, scope === null ? '*' : scope); } catch (e3) {}
   unlock();
 });
 
@@ -264,6 +282,7 @@ document.getElementById('gate-form').addEventListener('submit', async (e) => {
  *  الأعمدة — مفاتيح قاعدة البيانات كما هي
  * ==================================================================== */
 const REF  = '#المرجع';
+const UNASSIGNED = 'غير مُسند';
 const SENSITIVE = new Set(['الرقم المدني', 'تاريخ الميلاد', 'الهاتف', 'هاتف مدير المدرسة',
                            'هاتف آخر للمدرسة', 'البريد الالكتروني']);
 const NUMERIC = new Set(['الرقم المدني', 'الهاتف', 'هاتف مدير المدرسة', 'هاتف آخر للمدرسة',
@@ -277,11 +296,11 @@ const ALIAS = {
 };
 
 const COLS = {
-  'حكومية': [REF, 'المدرسة', 'عدد معلمي الرياضة', 'اسم المعلم', 'الرقم المدني', 'تاريخ الميلاد',
+  'حكومية': [REF, 'المشرف', 'المدرسة', 'عدد معلمي الرياضة', 'اسم المعلم', 'الرقم المدني', 'تاريخ الميلاد',
              'الهاتف', 'البريد الالكتروني', 'الجامعة', 'المؤهل', 'التخصص', 'رقم الملف',
              'سنة التعيين', 'الدرجة المالية', 'عدد الحصص', 'الفصول التي تدرسها',
              'السكن الحالي', 'العنوان الدائم', 'اسم مدير المدرسة', 'هاتف مدير المدرسة'],
-  'خاصة':   [REF, 'المدرسة', 'موقع المدرسة', 'الصفوف', 'المنهاج', 'التقويم', 'اسم المعلم',
+  'خاصة':   [REF, 'المشرف', 'المدرسة', 'موقع المدرسة', 'الصفوف', 'المنهاج', 'التقويم', 'اسم المعلم',
              'الجنسية', 'الحالة الاجتماعية', 'الهاتف', 'المؤهل', 'التخصص', 'عدد الحصص',
              'الصفوف التي يدرسها', 'اللغة التي يتم تدريس بها المادة', 'الموافقة على التعيين',
              'رياضة (11)', 'رياضة (12)', 'اسم مدير المدرسة', 'هاتف مدير المدرسة',
@@ -367,10 +386,14 @@ async function load() {
   }
 }
 
+const inScope = (r) => !scope || r['المشرف'] === scope;
+
 function current() {
   const q = norm(el('q').value);
   const school = el('school').value;
-  let rows = ALL.filter((r) => r['نوع المدرسة'] === type);
+  const sup = scope || el('sup').value;
+  let rows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
+  if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
   if (school) rows = rows.filter((r) => r['المدرسة'] === school);
   if (q) {
     rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
@@ -386,12 +409,19 @@ function current() {
 }
 
 function fillSchools() {
-  const sel = el('school');
-  const names = [...new Set(ALL.filter((r) => r['نوع المدرسة'] === type)
-                               .map((r) => r['المدرسة']).filter(Boolean))]
+  const mine = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
+  const names = [...new Set(mine.map((r) => r['المدرسة']).filter(Boolean))]
                 .sort((a, b) => a.localeCompare(b, 'ar'));
-  sel.innerHTML = '<option value="">كل المدارس</option>' +
+  el('school').innerHTML = '<option value="">كل المدارس</option>' +
     names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+
+  /* السجلات السابقة للتقسيم بلا مشرف، فتُجمع تحت بند صريح بدل أن تختفي */
+  const sups = [...new Set(mine.map((r) => r['المشرف'] || UNASSIGNED))]
+               .sort((a, b) => a.localeCompare(b, 'ar'));
+  const keep = el('sup').value;
+  el('sup').innerHTML = '<option value="">كل المشرفين</option>' +
+    sups.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  el('sup').value = sups.includes(keep) ? keep : '';
 }
 
 function highlight(text, q) {
@@ -415,21 +445,21 @@ function render() {
 
   el('rows').innerHTML = rows.map((r, i) =>
     '<tr><td class="idx">' + (i + 1) + '</td>' + cols.map((c) => {
-      const raw = r[c] == null ? '' : String(r[c]);
+      const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '');
       if (!raw) return `<td class="${cls}">—</td>`;
       if (!revealed && SENSITIVE.has(c)) return `<td class="${cls}"><span class="mask">${esc(mask(raw, c))}</span></td>`;
       return `<td class="${cls}">${highlight(raw, q)}</td>`;
     }).join('') + '</tr>').join('');
 
-  const total = ALL.filter((r) => r['نوع المدرسة'] === type).length;
+  const total = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r)).length;
   const schools = new Set(rows.map((r) => r['المدرسة']).filter(Boolean)).size;
   el('note').textContent = rows.length === total
     ? `${total} معلّماً في ${schools} مدرسة.`
     : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
 
-  el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية').length;
-  el('n-priv').textContent = ALL.filter((r) => r['نوع المدرسة'] === 'خاصة').length;
+  el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية' && inScope(r)).length;
+  el('n-priv').textContent = ALL.filter((r) => r['نوع المدرسة'] === 'خاصة'  && inScope(r)).length;
   el('state').hidden = rows.length > 0;
   if (!rows.length) {
     el('state').className = 'state';
@@ -462,6 +492,7 @@ el('head').addEventListener('click', (e) => {
 
 el('q').addEventListener('input', render);
 el('school').addEventListener('change', render);
+el('sup').addEventListener('change', () => { el('school').value = ''; fillSchools(); render(); });
 el('reload').addEventListener('click', load);
 el('print').addEventListener('click', () => window.print());
 
@@ -497,7 +528,11 @@ el('export').addEventListener('click', () => {
 });
 
 /* من فتح البوّابة في هذا التبويب لا يُسأل الرمز ثانيةً حتى يُغلقه */
-try { if (sessionStorage.getItem(SESSION_KEY) === '1') unlock(); } catch (e) {}
+try {
+  const saved = sessionStorage.getItem(SESSION_KEY);
+  if (saved === '*') { scope = null; unlock(); }
+  else if (saved && SUPERVISORS.some((s) => s.name === saved)) { scope = saved; unlock(); }
+} catch (e) {}
 </script>
 </body>
 </html>

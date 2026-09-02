@@ -114,7 +114,14 @@ body{
  *  اختيار نوع المدرسة
  * ==================================================================== */
 .picker{padding:30px 0; border-top:1px solid var(--line)}
+.picker:empty{display:none}
 .picker__label{display:block; font-size:12.5px; font-weight:600; letter-spacing:.03em; color:var(--ink-3); margin-bottom:13px}
+
+/* وسم المشرف: سطر مقروء حين يحدّده الرابط، وقائمة مطلوبة حين لا يحدّده */
+.assign{display:flex; align-items:center; flex-wrap:wrap}
+.assign__name{font-size:15px; font-weight:600}
+.assign__hint{font-size:12.5px; color:var(--ink-3); margin-right:10px}
+.assign__pick{max-width:340px}
 .choice{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 @media(max-width:560px){.choice{grid-template-columns:1fr}}
 .choice__item{position:relative; margin:0}
@@ -344,6 +351,8 @@ input[type=number].control{-moz-appearance:textfield}
     </div>
 
     <form id="form" novalidate>
+      <div class="picker" id="assign"></div>
+
       <div class="picker">
         <span class="picker__label" id="type-label">نوع المدرسة</span>
         <div class="choice" role="radiogroup" aria-labelledby="type-label">
@@ -514,6 +523,7 @@ const PRIVATE = [
 
 /* مفاتيح قاعدة البيانات — يُحفظ ما ورد فيها فقط */
 const KEYS = [
+  'المشرف',
   'نوع المدرسة','المدرسة','الصفوف','اسم المعلم','عدد الحصص','الصفوف التي يدرسها','التخصص',
   'الهاتف','الجنسية','المؤهل','الحالة الاجتماعية','اللغة التي يتم تدريس بها المادة',
   'اسم مدير المدرسة','هاتف مدير المدرسة','المنهاج','التقويم','رياضة (11)','رياضة (12)',
@@ -521,6 +531,53 @@ const KEYS = [
   'عدد معلمي الرياضة','رقم الملف','الفصول التي تدرسها','السكن الحالي','سنة التعيين',
   'الدرجة المالية','الرقم المدني','الجامعة','تاريخ الميلاد','العنوان الدائم','البريد الالكتروني'
 ];
+
+/* ==================================================================== *
+ *  المشرفون
+ *  تُولَّد هذه الكتلة من teacher-data-tools/supervisors.txt عبر
+ *  sync_supervisors.py — لا تُحرَّر يدوياً وإلّا ضاع التعديل عند المزامنة.
+ * ==================================================================== */
+/* === SUPERVISORS:BEGIN === */
+const SUPERVISORS = [
+  { id: 'asad', name: 'أسعد الخصيبي' }
+];
+/* === SUPERVISORS:END === */
+
+/* رابط كل مشرف يحمل معرّفه (‎?m=asad‎) فيُوسم المعلّم به تلقائياً. الرابط
+   المجرّد يعرض قائمة إلزامية بدلاً من ذلك، فلا يُسجَّل معلّم بلا مشرف. */
+function currentSupervisor() {
+  let id = '';
+  try { id = new URLSearchParams(location.search).get('m') || ''; } catch (e) {}
+  return SUPERVISORS.find((s) => s.id === id) || null;
+}
+
+function renderAssign() {
+  const host = document.getElementById('assign');
+  const sup = currentSupervisor();
+
+  if (sup) {
+    host.className = 'picker assign';
+    host.innerHTML =
+      `<span class="picker__label" style="margin:0 0 0 12px">المشرف المسؤول</span>` +
+      `<strong class="assign__name">${esc(sup.name)}</strong>` +
+      `<span class="assign__hint">حُدِّد من الرابط</span>` +
+      `<input type="hidden" name="المشرف" value="${esc(sup.name)}">`;
+    return;
+  }
+
+  host.className = 'picker';
+  host.innerHTML =
+    `<span class="picker__label" id="sup-label">المشرف المسؤول</span>` +
+    `<div class="field" data-field>` +
+      `<select id="supervisor" name="المشرف" class="control is-empty assign__pick"` +
+      ` aria-labelledby="sup-label" aria-describedby="supervisor-h supervisor-e" required>` +
+        `<option value="" disabled selected>اختر المشرف المسؤول</option>` +
+        SUPERVISORS.map((s) => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('') +
+      `</select>` +
+      `<p class="field__help" id="supervisor-h">استعمل الرابط الذي أرسله لك مشرفك ليُحدَّد تلقائياً.</p>` +
+      `<p class="field__error" id="supervisor-e" hidden></p>` +
+    `</div>`;
+}
 
 /* ==================================================================== *
  *  هويّة المعلّم — لمنع تكرار السجلّ عند إعادة الإرسال
@@ -786,7 +843,8 @@ form.addEventListener('submit', async (e) => {
   summary.hidden = true;
 
   const invalid = [];
-  for (const el of controls()) {
+  const sup = document.getElementById('supervisor');   /* موجود حين لا يحدّده الرابط */
+  for (const el of (sup ? [sup] : []).concat(controls())) {
     const ok = el.checkValidity();
     mark(el, ok);
     if (!ok) invalid.push(el);
@@ -864,6 +922,7 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+renderAssign();
 restoreDraft();
 </script>
 </body>
