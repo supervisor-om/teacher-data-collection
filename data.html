@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#ffffff">
+<title>البيانات المجمّعة — استمارة معلمي الرياضة المدرسية</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  color-scheme: light;
+  --surface:#ffffff; --muted:#f7f8fa; --line:#e4e7ec; --line-2:#c9d0d9;
+  --ink:#141c26; --ink-2:#5a6473; --ink-3:#8d97a4;
+  --brand:#0f4c81; --brand-2:#0c3d68; --brand-tint:#eaf1f8;
+  --danger:#b42318; --danger-line:#f0c9c5; --danger-tint:#fdf2f1;
+  --r:4px; --ctrl-h:38px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface);color:var(--ink);
+  font-family:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+[hidden]{display:none !important}
+
+/* ---------------------------------------------------------- الشريط -- */
+.topbar{position:-webkit-sticky;position:sticky;top:0;z-index:30;background:var(--surface);
+  border-bottom:1px solid var(--line)}
+.topbar__in{max-width:1400px;margin:0 auto;padding:0 22px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;min-width:0}
+.brand__mark{flex:none;width:30px;height:30px;border-radius:var(--r);background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-left:10px}
+.brand__title{font-size:13.5px;font-weight:600;line-height:1.3;white-space:nowrap}
+.brand__sub{font-size:11.5px;color:var(--ink-3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar__act{display:flex;align-items:center;gap:8px;flex:none}
+
+/* ------------------------------------------------------------ بوّابة -- */
+.gate{max-width:380px;margin:14vh auto;padding:0 22px;text-align:center}
+.gate__mark{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+  border-radius:6px;background:var(--muted);color:var(--ink-2);border:1px solid var(--line)}
+.gate__title{margin:18px 0 0;font-size:18px;font-weight:600}
+.gate__text{margin:8px 0 22px;font-size:13.5px;color:var(--ink-2)}
+.gate form{display:flex;gap:8px}
+.gate .control{text-align:center;letter-spacing:.08em}
+.gate__err{margin:12px 0 0;font-size:13px;color:var(--danger);min-height:20px}
+
+/* ------------------------------------------------------------ أدوات -- */
+.wrap{max-width:1400px;margin:0 auto;padding:20px 22px 60px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.tabs{display:flex;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.tab{appearance:none;border:0;background:var(--surface);color:var(--ink-2);font:inherit;font-size:13.5px;
+  font-weight:600;padding:0 16px;height:var(--ctrl-h);cursor:pointer;white-space:nowrap}
+.tab + .tab{border-right:1px solid var(--line-2)}
+.tab[aria-selected="true"]{background:var(--brand);color:#fff}
+.tab b{font-weight:600;opacity:.75;margin-right:6px;font-variant-numeric:tabular-nums}
+
+.control{display:block;height:var(--ctrl-h);padding:0 11px;font:inherit;font-size:14px;color:var(--ink);
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);
+  -webkit-appearance:none;appearance:none;transition:border-color .15s,box-shadow .15s}
+.control:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,76,129,.13)}
+.search{flex:1;min-width:200px}
+select.control{cursor:pointer;padding-left:32px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%235a6473' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left 11px center}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:var(--ctrl-h);padding:0 15px;
+  font:inherit;font-size:13.5px;font-weight:600;color:var(--brand);background:var(--surface);
+  border:1px solid var(--line-2);border-radius:var(--r);cursor:pointer;white-space:nowrap;
+  transition:background-color .15s,border-color .15s}
+.btn:hover:not(:disabled){background:var(--muted);border-color:#aab3bf}
+.btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn--solid{color:#fff;background:var(--brand);border-color:var(--brand)}
+.btn--solid:hover:not(:disabled){background:var(--brand-2);border-color:var(--brand-2)}
+.btn--on{color:var(--brand);background:var(--brand-tint);border-color:var(--brand)}
+
+.note{margin:0 0 16px;padding:10px 13px;background:var(--muted);border:1px solid var(--line);
+  border-radius:var(--r);font-size:12.5px;color:var(--ink-2)}
+
+/* ------------------------------------------------------------ جدول -- */
+/* الجدول يمرّر داخل إطاره أفقياً ورأسياً، فيثبت رأسه عند حافّة الإطار.
+   لو تُرك التمرير للصفحة لالتصق الرأس بالشريط العلوي وغطّى الصف الأوّل. */
+.scroll{max-height:calc(100vh - 215px);overflow:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--line);border-radius:6px}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th,td{padding:9px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+thead th{position:-webkit-sticky;position:sticky;top:0;z-index:10;background:var(--muted);
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);cursor:pointer;
+  border-bottom:1px solid var(--line-2);user-select:none}
+thead th:hover{color:var(--ink)}
+thead th .dir{color:var(--brand);margin-right:4px}
+tbody tr:hover{background:var(--brand-tint)}
+tbody tr:last-child td{border-bottom:0}
+td.num{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+td.idx{color:var(--ink-3);font-variant-numeric:tabular-nums;width:1%}
+td.ref{font-variant-numeric:tabular-nums;letter-spacing:.03em;color:var(--ink-2)}
+.mask{color:var(--ink-3);letter-spacing:.12em}
+mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
+
+.state{padding:48px 20px;text-align:center;color:var(--ink-3);font-size:14px}
+.state--err{color:var(--danger)}
+.foot{margin:16px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
+
+@media(max-width:640px){
+  .topbar__in,.wrap{padding-left:14px;padding-right:14px}
+  .brand__sub{display:none}
+  .scroll{max-height:calc(100vh - 260px)}
+}
+
+@media print{
+  .topbar,.bar,.note,.foot{display:none !important}
+  .wrap{padding:0;max-width:none}
+  .scroll{max-height:none;overflow:visible;border:0}
+  thead th{position:static;background:#fff;border-bottom:1.5px solid #000}
+  th,td{padding:4px 6px;font-size:10px;white-space:normal}
+  tbody tr:hover{background:transparent}
+  @page{size:A4 landscape;margin:10mm}
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================================= -->
+<!--  البوّابة                                                          -->
+<!-- ================================================================= -->
+<section class="gate" id="gate">
+  <div class="gate__mark">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="4" y="10.5" width="16" height="10" rx="2"/>
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+    </svg>
+  </div>
+  <h1 class="gate__title">البيانات المجمّعة</h1>
+  <p class="gate__text">أدخل رمز الدخول لعرض بيانات المعلّمين.</p>
+  <form id="gate-form">
+    <input type="password" class="control search" id="code" autocomplete="off"
+           placeholder="رمز الدخول" aria-label="رمز الدخول" required>
+    <button type="submit" class="btn btn--solid">دخول</button>
+  </form>
+  <p class="gate__err" id="gate-err" role="alert"></p>
+</section>
+
+<!-- ================================================================= -->
+<!--  اللوحة                                                            -->
+<!-- ================================================================= -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar__in">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9.7" cy="5.1" r="2.5" fill="currentColor" stroke="none"/>
+            <path d="M11.2 8.3 L13.2 13"/><path d="M11.2 8.3 L8.8 10.7 L10.2 8.1"/>
+            <path d="M11.2 8.3 L14.8 10.7 L16.4 8.5"/><path d="M13.2 13 L9.2 13.8 L9.8 18.2"/>
+            <path d="M13.2 13 L15.4 16.4 L18.4 18.6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand__title">البيانات المجمّعة</div>
+          <div class="brand__sub">الرياضة المدرسية/التربية البدنية والصحية</div>
+        </div>
+      </div>
+      <div class="topbar__act">
+        <button type="button" class="btn" id="reload" title="إعادة التحميل">تحديث</button>
+        <button type="button" class="btn" id="print">طباعة</button>
+        <button type="button" class="btn btn--solid" id="export">تصدير Excel</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="bar">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-gov"  aria-selected="true"  data-type="حكومية">حكومية <b id="n-gov">0</b></button>
+        <button class="tab" role="tab" id="tab-priv" aria-selected="false" data-type="خاصة">خاصة <b id="n-priv">0</b></button>
+      </div>
+      <input type="search" class="control search" id="q" placeholder="بحث في الاسم أو المدرسة أو الرقم…" aria-label="بحث">
+      <select class="control" id="school" aria-label="تصفية بالمدرسة"><option value="">كل المدارس</option></select>
+      <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
+    </div>
+
+    <p class="note" id="note"></p>
+
+    <div class="scroll">
+      <table id="table">
+        <thead><tr id="head"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="state" id="state">جارٍ تحميل البيانات…</div>
+
+    <p class="foot">تُستخدم هذه البيانات لأغراض الإشراف التربوي فقط.</p>
+  </main>
+</div>
+
+<noscript>
+  <p style="max-width:600px;margin:24px auto;padding:14px 18px;background:#fdf2f1;border:1px solid #f0c9c5;color:#8b1f18;border-radius:4px">
+    هذه الصفحة تحتاج إلى تفعيل JavaScript في المتصفّح.
+  </p>
+</noscript>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getFirestore, collection, getDocs }
+  from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+/* ==================================================================== *
+ *  رمز الدخول
+ *  يُخزَّن بصمةً لا نصّاً حتى لا يُقرأ من مصدر الصفحة. لتغييره: نفّذ في
+ *  وحدة تحكّم المتصفّح ثم ضع الناتج مكان القيمة أدناه:
+ *    crypto.subtle.digest('SHA-256', new TextEncoder().encode('الرمز الجديد'))
+ *      .then(b => console.log([...new Uint8Array(b)]
+ *        .map(x => x.toString(16).padStart(2,'0')).join('')));
+ *  البوّابة تمنع الوصول العابر لمن يعثر على الرابط، وليست بديلاً عن قواعد
+ *  الأمان في قاعدة البيانات.
+ * ==================================================================== */
+const CODE_HASH = '8d1d894f28ad2a5f8ecc4ad8230dfcfd5b2ee8e71ac3634ec89f40de605ca3a1';
+const SESSION_KEY = 'tdc-unlocked';
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const gate = document.getElementById('gate');
+const app  = document.getElementById('app');
+
+function unlock() {
+  gate.hidden = true;
+  app.hidden = false;
+  load();
+}
+
+document.getElementById('gate-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('gate-err');
+  const input = document.getElementById('code');
+  try {
+    if (await sha256(input.value.trim()) !== CODE_HASH) {
+      err.textContent = 'رمز غير صحيح.';
+      input.value = '';
+      input.focus();
+      return;
+    }
+  } catch (e2) {
+    err.textContent = 'تعذّر التحقّق في هذا المتصفّح.';
+    return;
+  }
+  try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e3) {}
+  unlock();
+});
+
+/* استعادة الجلسة تجري في آخر الملف: unlock() يستدعي load() التي تعتمد على
+   تعريفات لاحقة، فاستدعاؤها هنا يرمي قبل أن يُقيَّم شيء منها. */
+
+/* ==================================================================== *
+ *  الأعمدة — مفاتيح قاعدة البيانات كما هي
+ * ==================================================================== */
+const REF  = '#المرجع';
+const SENSITIVE = new Set(['الرقم المدني', 'تاريخ الميلاد', 'الهاتف', 'هاتف مدير المدرسة',
+                           'هاتف آخر للمدرسة', 'البريد الالكتروني']);
+const NUMERIC = new Set(['الرقم المدني', 'الهاتف', 'هاتف مدير المدرسة', 'هاتف آخر للمدرسة',
+                         'رقم الملف', 'سنة التعيين', 'الدرجة المالية', 'عدد الحصص',
+                         'عدد معلمي الرياضة', 'تاريخ الميلاد']);
+
+/* المفتاح الحالي ← مفتاحه في نسخة أسبق من النموذج */
+const ALIAS = {
+  'اسم المعلم':     'اسم المعلم الثلاثي',
+  'العنوان الدائم': 'العنوان الدائم للمعلم'
+};
+
+const COLS = {
+  'حكومية': [REF, 'المدرسة', 'عدد معلمي الرياضة', 'اسم المعلم', 'الرقم المدني', 'تاريخ الميلاد',
+             'الهاتف', 'البريد الالكتروني', 'الجامعة', 'المؤهل', 'التخصص', 'رقم الملف',
+             'سنة التعيين', 'الدرجة المالية', 'عدد الحصص', 'الفصول التي تدرسها',
+             'السكن الحالي', 'العنوان الدائم', 'اسم مدير المدرسة', 'هاتف مدير المدرسة'],
+  'خاصة':   [REF, 'المدرسة', 'موقع المدرسة', 'الصفوف', 'المنهاج', 'التقويم', 'اسم المعلم',
+             'الجنسية', 'الحالة الاجتماعية', 'الهاتف', 'المؤهل', 'التخصص', 'عدد الحصص',
+             'الصفوف التي يدرسها', 'اللغة التي يتم تدريس بها المادة', 'الموافقة على التعيين',
+             'رياضة (11)', 'رياضة (12)', 'اسم مدير المدرسة', 'هاتف مدير المدرسة',
+             'هاتف آخر للمدرسة']
+};
+
+const app_ = initializeApp({
+  apiKey: "AIzaSyC-TbgJ65PuKeiedsTBjhpOvuV0uTg95kA",
+  authDomain: "teacher-data-collection-716bb.firebaseapp.com",
+  projectId: "teacher-data-collection-716bb",
+  storageBucket: "teacher-data-collection-716bb.appspot.com",
+  messagingSenderId: "265119186663",
+  appId: "1:265119186663:web:6703a0600f0de0f93b2c42",
+  measurementId: "G-376PKG2V6M"
+});
+const db = getFirestore(app_);
+
+/* ==================================================================== *
+ *  الحالة
+ * ==================================================================== */
+let ALL = [];
+let type = 'حكومية';
+let sortKey = 'المدرسة';
+let sortDir = 1;
+let revealed = false;
+
+const el = (id) => document.getElementById(id);
+const ESC = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESC[c]);
+
+/* الأرقام العربية تُقارَن كلاتينية حتى يجد البحث «٩٣٢٢» و«9322» سواء */
+const AR = '٠١٢٣٤٥٦٧٨٩', FA = '۰۱۲۳۴۵۶۷۸۹';
+const norm = (s) => String(s == null ? '' : s)
+  .replace(/[٠-٩۰-۹]/g, (d) => { const i = AR.indexOf(d); return String(i >= 0 ? i : FA.indexOf(d)); })
+  .replace(/[إأآا]/g, 'ا').replace(/[ةه]/g, 'ه').replace(/[ىي]/g, 'ي')
+  .replace(/[ً-ْـ]/g, '')
+  .toLowerCase().trim();
+
+/* يُبقي من كل حقل ما يكفي لتمييز صاحبه دون كشفه:
+   البريد يُترك نطاقه (moe.om يشترك فيه الجميع فلا يدلّ على أحد) بينما
+   يُخفى الاسم قبل @ — والتقنيع الأعمى كان يُبقي «com» من كل بريد فلا يفيد.
+   تاريخ الميلاد تبقى سنته وحدها، وهي المفيدة إشرافياً والأقلّ حساسية. */
+function mask(v, col) {
+  const s = String(v);
+  if (col === 'البريد الالكتروني' && s.includes('@')) {
+    const [name, host] = s.split('@');
+    return name.slice(0, 1) + '•'.repeat(Math.max(3, name.length - 1)) + '@' + host;
+  }
+  if (col === 'تاريخ الميلاد' && /^\d{4}-/.test(s)) return s.slice(0, 4) + '-••-••';
+  if (s.length <= 3) return '•'.repeat(s.length);
+  return '•'.repeat(Math.max(3, s.length - 3)) + s.slice(-3);
+}
+
+async function load() {
+  const state = el('state');
+  state.className = 'state';
+  state.textContent = 'جارٍ تحميل البيانات…';
+  state.hidden = false;
+  el('table').hidden = true;
+  try {
+    const snap = await getDocs(collection(db, 'teachers'));
+    ALL = [];
+    snap.forEach((d) => {
+      const row = Object.assign({}, d.data());
+      /* نسخة أسبق من النموذج سمّت حقلين تسمية أخرى، وواحدٌ وعشرون سجلاً
+         ما زال يحملها. تُقرأ هنا في مكانها الجديد فلا يظهر العمود فارغاً،
+         ولا يُمسّ ما في قاعدة البيانات. */
+      for (const key of Object.keys(ALIAS)) {
+        if (!row[key] && row[ALIAS[key]]) row[key] = row[ALIAS[key]];
+      }
+      row.__id = d.id;
+      row[REF] = 'TDC-' + d.id.slice(0, 6).toUpperCase();
+      ALL.push(row);
+    });
+    state.hidden = true;
+    el('table').hidden = false;
+    fillSchools();
+    render();
+  } catch (err) {
+    console.error('[data] تعذّر التحميل:', err);
+    state.className = 'state state--err';
+    state.textContent = 'تعذّر تحميل البيانات. تحقّق من الاتصال ثمّ اضغط «تحديث».';
+  }
+}
+
+function current() {
+  const q = norm(el('q').value);
+  const school = el('school').value;
+  let rows = ALL.filter((r) => r['نوع المدرسة'] === type);
+  if (school) rows = rows.filter((r) => r['المدرسة'] === school);
+  if (q) {
+    rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
+  }
+  const dir = sortDir;
+  return rows.sort((a, b) => {
+    const x = String(a[sortKey] == null ? '' : a[sortKey]);
+    const y = String(b[sortKey] == null ? '' : b[sortKey]);
+    const nx = Number(norm(x)), ny = Number(norm(y));
+    if (x !== '' && y !== '' && !isNaN(nx) && !isNaN(ny)) return (nx - ny) * dir;
+    return x.localeCompare(y, 'ar') * dir;
+  });
+}
+
+function fillSchools() {
+  const sel = el('school');
+  const names = [...new Set(ALL.filter((r) => r['نوع المدرسة'] === type)
+                               .map((r) => r['المدرسة']).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'ar'));
+  sel.innerHTML = '<option value="">كل المدارس</option>' +
+    names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+}
+
+function highlight(text, q) {
+  const safe = esc(text);
+  if (!q) return safe;
+  const i = norm(text).indexOf(q);
+  if (i < 0) return safe;
+  /* التطبيع قد يغيّر الأطوال، فنكتفي بتمييز مقطع بالطول نفسه من الأصل */
+  return esc(String(text).slice(0, i)) + '<mark>' + esc(String(text).slice(i, i + q.length)) +
+         '</mark>' + esc(String(text).slice(i + q.length));
+}
+
+function render() {
+  const cols = COLS[type];
+  const rows = current();
+  const q = norm(el('q').value);
+
+  el('head').innerHTML = '<th></th>' + cols.map((c) =>
+    `<th data-col="${esc(c)}">${esc(c === REF ? 'المرجع' : c)}` +
+    (sortKey === c ? `<span class="dir">${sortDir > 0 ? '▲' : '▼'}</span>` : '') + '</th>').join('');
+
+  el('rows').innerHTML = rows.map((r, i) =>
+    '<tr><td class="idx">' + (i + 1) + '</td>' + cols.map((c) => {
+      const raw = r[c] == null ? '' : String(r[c]);
+      const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '');
+      if (!raw) return `<td class="${cls}">—</td>`;
+      if (!revealed && SENSITIVE.has(c)) return `<td class="${cls}"><span class="mask">${esc(mask(raw, c))}</span></td>`;
+      return `<td class="${cls}">${highlight(raw, q)}</td>`;
+    }).join('') + '</tr>').join('');
+
+  const total = ALL.filter((r) => r['نوع المدرسة'] === type).length;
+  const schools = new Set(rows.map((r) => r['المدرسة']).filter(Boolean)).size;
+  el('note').textContent = rows.length === total
+    ? `${total} معلّماً في ${schools} مدرسة.`
+    : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
+
+  el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية').length;
+  el('n-priv').textContent = ALL.filter((r) => r['نوع المدرسة'] === 'خاصة').length;
+  el('state').hidden = rows.length > 0;
+  if (!rows.length) {
+    el('state').className = 'state';
+    el('state').textContent = 'لا توجد سجلات مطابقة.';
+  }
+}
+
+/* ==================================================================== *
+ *  الأحداث
+ * ==================================================================== */
+for (const t of document.querySelectorAll('.tab')) {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+    type = t.dataset.type;
+    sortKey = 'المدرسة';
+    sortDir = 1;
+    el('school').value = '';
+    fillSchools();
+    render();
+  });
+}
+
+el('head').addEventListener('click', (e) => {
+  const th = e.target.closest('th[data-col]');
+  if (!th) return;
+  const col = th.dataset.col;
+  if (sortKey === col) sortDir = -sortDir; else { sortKey = col; sortDir = 1; }
+  render();
+});
+
+el('q').addEventListener('input', render);
+el('school').addEventListener('change', render);
+el('reload').addEventListener('click', load);
+el('print').addEventListener('click', () => window.print());
+
+el('reveal').addEventListener('click', () => {
+  revealed = !revealed;
+  const b = el('reveal');
+  b.setAttribute('aria-pressed', String(revealed));
+  b.classList.toggle('btn--on', revealed);
+  b.textContent = revealed ? 'إخفاء الحقول الحسّاسة' : 'إظهار الحقول الحسّاسة';
+  render();
+});
+
+/* التصدير يحمل القيم كاملة غير مخفيّة — الملف يُحفظ على جهازك */
+el('export').addEventListener('click', () => {
+  const cols = COLS[type];
+  const rows = current();
+  const cell = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = [cols.map(cell).join(',')]
+    .concat(rows.map((r) => cols.map((c) => cell(r[c])).join(',')))
+    .join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `معلمو-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+/* من فتح البوّابة في هذا التبويب لا يُسأل الرمز ثانيةً حتى يُغلقه */
+try { if (sessionStorage.getItem(SESSION_KEY) === '1') unlock(); } catch (e) {}
+</script>
+</body>
+</html>
