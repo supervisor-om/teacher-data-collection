@@ -102,6 +102,45 @@ td.ref{font-variant-numeric:tabular-nums;letter-spacing:.03em;color:var(--ink-2)
 .mask{color:var(--ink-3);letter-spacing:.12em}
 mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
 
+/* -------------------------------------------------------- إجراءات -- */
+td.act{width:1%;white-space:nowrap;padding:4px 8px}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+  padding:0;margin:0 1px;border:1px solid transparent;border-radius:var(--r);
+  background:none;color:var(--ink-3);cursor:pointer;transition:color .15s,background-color .15s,border-color .15s}
+.iconbtn:hover{color:var(--brand);background:var(--brand-tint);border-color:var(--line-2)}
+.iconbtn--danger:hover{color:var(--danger);background:var(--danger-tint);border-color:var(--danger-line)}
+.iconbtn:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+
+/* --------------------------------------------------------- نافذة -- */
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(20,28,38,.45)}
+.modal{width:100%;max-width:820px;max-height:88vh;display:flex;flex-direction:column;
+  background:var(--surface);border-radius:6px;box-shadow:0 18px 48px rgba(16,24,40,.28)}
+.modal--sm{max-width:440px}
+.modal__head{padding:18px 22px;border-bottom:1px solid var(--line)}
+.modal__title{margin:0;font-size:16px;font-weight:600}
+.modal__sub{margin:5px 0 0;font-size:13px;color:var(--ink-2)}
+.modal__body{padding:20px 22px;overflow:auto;-webkit-overflow-scrolling:touch}
+.modal__foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 22px;border-top:1px solid var(--line);background:var(--muted);
+  border-radius:0 0 6px 6px}
+.modal__msg{font-size:13px;color:var(--danger);min-height:20px}
+.modal__acts{display:flex;gap:8px}
+
+.egrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+@media(max-width:640px){.egrid{grid-template-columns:1fr}}
+.efield label{display:block;font-size:12.5px;font-weight:500;color:var(--ink-2);margin-bottom:6px}
+.efield .control{width:100%}
+/* بلا امتدادات: حقل يمتدّ عمودين يترك جاره خانةً يتيمة في الصفّ السابق */
+
+.btn--danger{color:#fff;background:var(--danger);border-color:var(--danger)}
+.btn--danger:hover:not(:disabled){background:#8b1f18;border-color:#8b1f18}
+
+.dead{margin:0 0 16px;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;background:var(--danger-tint);border:1px solid var(--danger-line);
+  border-radius:var(--r);font-size:13px;color:#8b1f18}
+
 .state{padding:48px 20px;text-align:center;color:var(--ink-3);font-size:14px}
 .state--err{color:var(--danger)}
 .foot{margin:16px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
@@ -187,6 +226,11 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
       <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
     </div>
 
+    <p class="dead" id="undo" hidden>
+      <span id="undo-text"></span>
+      <button type="button" class="btn" id="undo-btn">تراجع عن الحذف</button>
+    </p>
+
     <p class="note" id="note"></p>
 
     <div class="scroll">
@@ -201,6 +245,51 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
   </main>
 </div>
 
+<!-- ================================================================= -->
+<!--  نافذة التعديل                                                     -->
+<!-- ================================================================= -->
+<div class="overlay" id="edit-ov" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="edit-title">تعديل بيانات معلّم</h2>
+      <p class="modal__sub" id="edit-sub"></p>
+    </div>
+    <div class="modal__body"><div class="egrid" id="edit-grid"></div></div>
+    <div class="modal__foot">
+      <span class="modal__msg" id="edit-msg"></span>
+      <span class="modal__acts">
+        <button type="button" class="btn" id="edit-cancel">إلغاء</button>
+        <button type="button" class="btn btn--solid" id="edit-save">حفظ التعديل</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!--  تأكيد الحذف                                                       -->
+<!-- ================================================================= -->
+<div class="overlay" id="del-ov" hidden>
+  <div class="modal modal--sm" role="alertdialog" aria-modal="true" aria-labelledby="del-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="del-title">حذف سجلّ المعلّم</h2>
+      <p class="modal__sub" id="del-sub"></p>
+    </div>
+    <div class="modal__body">
+      <p style="margin:0;font-size:13.5px;color:var(--ink-2)">
+        يُحذف السجلّ من قاعدة البيانات نهائياً. يمكنك التراجع مباشرةً بعد الحذف
+        ما دمت في هذه الصفحة؛ فإن أغلقتها تعذّر استرجاعه.
+      </p>
+    </div>
+    <div class="modal__foot">
+      <span class="modal__msg" id="del-msg"></span>
+      <span class="modal__acts">
+        <button type="button" class="btn" id="del-cancel">إلغاء</button>
+        <button type="button" class="btn btn--danger" id="del-ok">حذف نهائي</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <noscript>
   <p style="max-width:600px;margin:24px auto;padding:14px 18px;background:#fdf2f1;border:1px solid #f0c9c5;color:#8b1f18;border-radius:4px">
     هذه الصفحة تحتاج إلى تفعيل JavaScript في المتصفّح.
@@ -209,7 +298,8 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs }
+import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
+         serverTimestamp, deleteField }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ==================================================================== *
@@ -467,12 +557,12 @@ function render() {
   const rows = current();
   const q = norm(el('q').value);
 
-  el('head').innerHTML = '<th></th>' + cols.map((c) =>
+  el('head').innerHTML = '<th></th><th></th>' + cols.map((c) =>
     `<th data-col="${esc(c)}">${esc(c === REF ? 'المرجع' : c)}` +
     (sortKey === c ? `<span class="dir">${sortDir > 0 ? '▲' : '▼'}</span>` : '') + '</th>').join('');
 
   el('rows').innerHTML = rows.map((r, i) =>
-    '<tr><td class="idx">' + (i + 1) + '</td>' + cols.map((c) => {
+    '<tr><td class="idx">' + (i + 1) + '</td>' + actions(r) + cols.map((c) => {
       const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '');
       if (!raw) return `<td class="${cls}">—</td>`;
@@ -496,8 +586,185 @@ function render() {
 }
 
 /* ==================================================================== *
+ *  التعديل والحذف
+ *  الصلاحية تُفحص عند كل عملية لا عند الرسم وحده: صفٌّ خارج نطاق المشرف
+ *  لا يُعدَّل ولا يُحذف حتى لو بلغ زرَّه بطريقة ما.
+ * ==================================================================== */
+const ICON_EDIT = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="M14.5 5.5l4 4"/></svg>';
+const ICON_DEL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7"/><path d="M10.5 11v5M13.5 11v5"/></svg>';
+
+/* قوائم القيم المغلقة: الكتابة الحرّة فيها تُنتج صيغاً متعدّدة للقيمة
+   الواحدة فتُفسد التصفية والتصدير. */
+const OPTIONS = {
+  'المشرف': SUPERVISORS.map((x) => x.name),
+  'الحالة الاجتماعية': ['متزوج', 'اعزب', 'متزوجة', 'عزباء'],
+  'اللغة التي يتم تدريس بها المادة': ['عربي', 'انجليزي', 'عربي وانجليزي'],
+  'المنهاج': ['منهاج حكومي', 'منهاج خاص', 'منهاج حكومي + خاص'],
+  'التقويم': ['تقويم حكومي', 'تقويم خاص', 'تقويم حكومي + خاص'],
+  'الموافقة على التعيين': ['توجد موافقة', 'لا توجد', 'قيد الإجراءات'],
+  'رياضة (11)': ['نعم', 'لا يوجد'],
+  'رياضة (12)': ['نعم', 'لا يوجد']
+};
+
+let editing = null;    /* السجلّ المفتوح في نافذة التعديل */
+let deleting = null;   /* السجلّ المعروض في تأكيد الحذف */
+let lastDeleted = null;
+
+const byId = (id) => ALL.find((r) => r.__id === id) || null;
+const mayTouch = (r) => !!r && (!scope || r['المشرف'] === scope);
+
+function actions(r) {
+  if (!mayTouch(r)) return '<td class="act"></td>';
+  return '<td class="act">' +
+    '<button type="button" class="iconbtn" data-edit="' + r.__id + '" title="تعديل" aria-label="تعديل">' + ICON_EDIT + '</button>' +
+    '<button type="button" class="iconbtn iconbtn--danger" data-del="' + r.__id + '" title="حذف" aria-label="حذف">' + ICON_DEL + '</button>' +
+    '</td>';
+}
+
+function openEdit(id) {
+  const r = byId(id);
+  if (!mayTouch(r)) return;
+  editing = r;
+  el('edit-msg').textContent = '';
+  el('edit-sub').textContent = (r['اسم المعلم'] || 'بلا اسم') + ' — ' + (r['المدرسة'] || 'بلا مدرسة');
+  el('edit-grid').innerHTML = COLS[r['نوع المدرسة']].filter((c) => c !== REF).map((c, i) => {
+    const val = r[c] == null ? '' : String(r[c]);
+    const fid = 'f' + i;
+    const body = OPTIONS[c]
+      ? '<select id="' + fid + '" class="control" data-key="' + esc(c) + '"><option value="">—</option>' +
+        OPTIONS[c].map((o) => '<option value="' + esc(o) + '"' + (o === val ? ' selected' : '') + '>' + esc(o) + '</option>').join('') +
+        (val && OPTIONS[c].indexOf(val) === -1
+          ? '<option value="' + esc(val) + '" selected>' + esc(val) + '</option>' : '') +
+        '</select>'
+      : '<input id="' + fid + '" class="control" data-key="' + esc(c) + '" value="' + esc(val) + '" autocomplete="off">';
+    return '<div class="efield"><label for="' + fid + '">' + esc(c) + '</label>' + body + '</div>';
+  }).join('');
+  el('edit-ov').hidden = false;
+  const first = el('edit-grid').querySelector('.control');
+  if (first) first.focus();
+}
+
+function closeEdit() { el('edit-ov').hidden = true; editing = null; }
+
+async function saveEdit() {
+  if (!mayTouch(editing)) { closeEdit(); return; }
+  const btn = el('edit-save');
+  btn.disabled = true;
+  btn.textContent = 'جارٍ الحفظ…';
+  const patch = { updatedAt: serverTimestamp() };
+  const next = {};
+  for (const f of el('edit-grid').querySelectorAll('.control')) {
+    const key = f.getAttribute('data-key');
+    const v = String(f.value).trim();
+    /* الحقل الذي أُفرغ يُحذف من السجلّ بدل أن يبقى بقيمته القديمة */
+    patch[key] = v === '' ? deleteField() : v;
+    if (v !== '') next[key] = v;
+  }
+  try {
+    await updateDoc(doc(db, 'teachers', editing.__id), patch);
+    for (const c of COLS[editing['نوع المدرسة']]) if (c !== REF) delete editing[c];
+    Object.assign(editing, next);
+    closeEdit();
+    fillSchools();
+    render();
+  } catch (err) {
+    console.error('[edit] تعذّر الحفظ:', err);
+    el('edit-msg').textContent = 'تعذّر الحفظ. تحقّق من الاتصال ثمّ أعد المحاولة.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حفظ التعديل';
+  }
+}
+
+function askDelete(id) {
+  const r = byId(id);
+  if (!mayTouch(r)) return;
+  deleting = r;
+  el('del-msg').textContent = '';
+  el('del-sub').textContent = (r['اسم المعلم'] || 'بلا اسم') + ' — ' + (r['المدرسة'] || 'بلا مدرسة');
+  el('del-ov').hidden = false;
+  el('del-cancel').focus();
+}
+
+function closeDelete() { el('del-ov').hidden = true; deleting = null; }
+
+async function doDelete() {
+  if (!mayTouch(deleting)) { closeDelete(); return; }
+  const btn = el('del-ok');
+  btn.disabled = true;
+  btn.textContent = 'جارٍ الحذف…';
+  const gone = deleting;
+  try {
+    await deleteDoc(doc(db, 'teachers', gone.__id));
+    /* نسخة كاملة تبقى في الذاكرة ليصحّ التراجع. تُفقد بإغلاق الصفحة. */
+    const copy = {};
+    for (const k of Object.keys(gone)) if (k !== '__id' && k !== REF) copy[k] = gone[k];
+    lastDeleted = copy;
+    ALL = ALL.filter((r) => r !== gone);
+    closeDelete();
+    el('undo-text').textContent = 'حُذف سجلّ: ' + (copy['اسم المعلم'] || 'بلا اسم');
+    el('undo').hidden = false;
+    fillSchools();
+    render();
+  } catch (err) {
+    console.error('[delete] تعذّر الحذف:', err);
+    el('del-msg').textContent = 'تعذّر الحذف. تحقّق من الاتصال ثمّ أعد المحاولة.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حذف نهائي';
+  }
+}
+
+async function undoDelete() {
+  if (!lastDeleted) return;
+  const btn = el('undo-btn');
+  btn.disabled = true;
+  btn.textContent = 'جارٍ الاسترجاع…';
+  try {
+    /* يُعاد السجلّ بمعرّف جديد — محتواه كما كان، ومعه ختم استرجاع. */
+    await addDoc(collection(db, 'teachers'),
+                 Object.assign({}, lastDeleted, { restoredAt: serverTimestamp() }));
+    lastDeleted = null;
+    el('undo').hidden = true;
+    await load();
+  } catch (err) {
+    console.error('[undo] تعذّر الاسترجاع:', err);
+    el('undo-text').textContent = 'تعذّر الاسترجاع. تحقّق من الاتصال ثمّ أعد المحاولة.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تراجع عن الحذف';
+  }
+}
+
+/* ==================================================================== *
  *  الأحداث
  * ==================================================================== */
+el('rows').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-edit], button[data-del]');
+  if (!b) return;
+  const id = b.getAttribute('data-edit');
+  if (id) openEdit(id); else askDelete(b.getAttribute('data-del'));
+});
+
+el('edit-cancel').addEventListener('click', closeEdit);
+el('edit-save').addEventListener('click', saveEdit);
+el('del-cancel').addEventListener('click', closeDelete);
+el('del-ok').addEventListener('click', doDelete);
+el('undo-btn').addEventListener('click', undoDelete);
+
+el('edit-ov').addEventListener('click', (e) => { if (e.target === el('edit-ov')) closeEdit(); });
+el('del-ov').addEventListener('click', (e) => { if (e.target === el('del-ov')) closeDelete(); });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!el('edit-ov').hidden) closeEdit();
+  else if (!el('del-ov').hidden) closeDelete();
+});
+
 for (const t of document.querySelectorAll('.tab')) {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
