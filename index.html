@@ -383,8 +383,8 @@ input[type=number].control{-moz-appearance:textfield}
         <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
-    <h2 class="done__title">تم استلام الاستمارة</h2>
-    <p class="done__text">سُجِّلت البيانات بنجاح. احتفظ بالرقم المرجعي أدناه للمراجعة.</p>
+    <h2 class="done__title" id="done-title">تم استلام الاستمارة</h2>
+    <p class="done__text" id="done-text">سُجِّلت البيانات بنجاح. احتفظ بالرقم المرجعي أدناه للمراجعة.</p>
     <div class="done__ref">
       <span>الرقم المرجعي</span>
       <b id="ref">—</b>
@@ -406,7 +406,8 @@ input[type=number].control{-moz-appearance:textfield}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp }
+import { getFirestore, collection, doc, addDoc, updateDoc, getDocs, query, where, limit,
+         serverTimestamp, deleteField, FieldPath }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const app = initializeApp({
@@ -522,6 +523,51 @@ const KEYS = [
 ];
 
 /* ==================================================================== *
+ *  هويّة المعلّم — لمنع تكرار السجلّ عند إعادة الإرسال
+ *  الرقم المدني مطلوب في نموذج الحكومية وحده، فيقوم الهاتف مقامه في
+ *  نموذج الخاصة. الحقلان مطلوبان في نموذجيهما فلا يخلو سجلّ من مفتاح.
+ * ==================================================================== */
+const IDENTITY = { 'حكومية': 'الرقم المدني', 'خاصة': 'الهاتف' };
+
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const toLatinDigits = (s) => String(s).replace(/[٠-٩۰-۹]/g, (d) => {
+  const i = AR_DIGITS.indexOf(d);
+  return String(i >= 0 ? i : FA_DIGITS.indexOf(d));
+});
+
+/* الصيغ المحتملة للقيمة نفسها. ثلاثة سجلّات قديمة خُزّنت بمسافة زائدة في
+   آخر الرقم المدني، والمطابقة الحرفية وحدها كانت ستُنشئ لها نسخة ثانية. */
+function idCandidates(raw) {
+  const trimmed = String(raw).trim();
+  const latin   = toLatinDigits(trimmed);
+  const bare    = latin.replace(/[^0-9]/g, '');
+  const out = [];
+  for (const v of [trimmed, String(raw), latin, bare, trimmed + ' ', ' ' + trimmed]) {
+    if (v && out.indexOf(v) === -1) out.push(v);
+  }
+  return out.slice(0, 10);
+}
+
+/* يبحث عن استمارة سابقة للمعلّم نفسه. يُصفّى نوع المدرسة في المتصفّح لا
+   في الاستعلام، إذ يستلزم شرطان معاً فهرساً مركّباً يُنشأ يدوياً. */
+async function findExisting(type, field, value) {
+  if (!field || !value) return null;
+  const snap = await getDocs(query(
+    collection(db, 'teachers'),
+    where(new FieldPath(field), 'in', idCandidates(value)),
+    limit(10)
+  ));
+  const hits = [];
+  snap.forEach((d) => {
+    if ((d.data() || {})['نوع المدرسة'] === type) hits.push(d);
+  });
+  if (!hits.length) return null;
+  const exact = hits.find((d) => String((d.data() || {})[field]).trim() === String(value).trim());
+  return exact || hits[0];
+}
+
+/* ==================================================================== *
  *  البناء
  * ==================================================================== */
 const ESC = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
@@ -615,7 +661,7 @@ const summary  = document.getElementById('summary');
 const sumTitle = document.getElementById('summary-title');
 const sumList  = document.getElementById('summary-list');
 const submit   = document.getElementById('submit');
-const doc      = document.getElementById('doc');
+const docEl    = document.getElementById('doc');   /* doc محجوز لدالة Firestore */
 const done     = document.getElementById('done');
 const draftBar = document.getElementById('draft');
 
@@ -763,19 +809,48 @@ form.addEventListener('submit', async (e) => {
   submit.innerHTML = 'جارٍ الإرسال<span class="spinner"></span>';
 
   const data = new FormData(form);
-  const record = { createdAt: serverTimestamp() };
+  const values = {};
   for (const key of KEYS) {
-    const value = data.get(key);
-    if (value !== null && String(value).trim() !== '') record[key] = value;
+    const v = data.get(key);
+    if (v !== null && String(v).trim() !== '') values[key] = String(v).trim();
+  }
+
+  const type    = values['نوع المدرسة'];
+  const idField = IDENTITY[type];
+
+  /* فشل البحث لا يوقف الإرسال: تسجيل نسخة ثانية أهون من ضياع الاستمارة */
+  let existing = null;
+  try {
+    existing = await findExisting(type, idField, values[idField]);
+  } catch (err) {
+    console.warn('[form] تعذّر البحث عن استمارة سابقة:', err);
   }
 
   try {
-    const ref = await addDoc(collection(db, 'teachers'), record);
+    let id;
+    if (existing) {
+      /* تُحدَّث المفاتيح المعروفة وحدها، وتُحذف منها ما تُرك فارغاً هذه
+         المرّة. سجلّات قديمة تحمل حقولاً من نسخة أسبق للنموذج، والاستبدال
+         الكامل كان سيمحوها. */
+      const patch = { updatedAt: serverTimestamp() };
+      for (const key of KEYS) patch[key] = (key in values) ? values[key] : deleteField();
+      await updateDoc(doc(db, 'teachers', existing.id), patch);
+      id = existing.id;
+    } else {
+      const ref = await addDoc(collection(db, 'teachers'), Object.assign({}, values, { createdAt: serverTimestamp() }));
+      id = ref.id;
+    }
+
     clearDraft();
-    document.getElementById('ref').textContent = 'TDC-' + ref.id.slice(0, 6).toUpperCase();
+    document.getElementById('done-title').textContent =
+      existing ? 'تم تحديث بياناتك' : 'تم استلام الاستمارة';
+    document.getElementById('done-text').textContent = existing
+      ? 'وجدنا استمارة سابقة لك، فحُدِّثت بما أدخلتَه الآن بدل تسجيل نسخة ثانية.'
+      : 'سُجِّلت البيانات بنجاح. احتفظ بالرقم المرجعي أدناه للمراجعة.';
+    document.getElementById('ref').textContent = 'TDC-' + id.slice(0, 6).toUpperCase();
     document.getElementById('stamp').textContent =
       new Date().toLocaleString('ar-OM', { dateStyle: 'long', timeStyle: 'short' });
-    doc.hidden = true;
+    docEl.hidden = true;
     done.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
