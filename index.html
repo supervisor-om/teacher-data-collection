@@ -272,11 +272,12 @@ input[type=number].control{-moz-appearance:textfield}
 }
 .done__title{margin:20px 0 0; font-size:20px; font-weight:600}
 .done__text{margin:9px 0 0; font-size:14px; color:var(--ink-2)}
-.done__ref{display:inline-block; margin-top:26px; padding:13px 22px; border:1px dashed var(--line-2); border-radius:var(--r); background:var(--muted)}
-.done__ref span{font-size:12px; color:var(--ink-3)}
-.done__ref b{display:block; margin-top:4px; direction:ltr; font-size:17px; font-weight:600; letter-spacing:.09em; font-variant-numeric:tabular-nums}
-.done__time{margin:14px 0 0; font-size:12.5px; color:var(--ink-3)}
-.done__again{margin-top:28px}
+.done__note{
+  max-width:46ch; margin:22px auto 0; padding-top:20px;
+  border-top:1px solid var(--line);
+  font-size:14px; line-height:1.85; color:var(--ink-2);
+}
+.done__time{margin:22px 0 0; font-size:12.5px; color:var(--ink-3)}
 
 .foot{margin:0; padding:22px 0 0; border-top:1px solid var(--line); font-size:12px; color:var(--ink-3); text-align:center}
 
@@ -392,16 +393,13 @@ input[type=number].control{-moz-appearance:textfield}
         <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
-    <h2 class="done__title" id="done-title">تم استلام الاستمارة</h2>
-    <p class="done__text" id="done-text">سُجِّلت البيانات بنجاح. احتفظ بالرقم المرجعي أدناه للمراجعة.</p>
-    <div class="done__ref">
-      <span>الرقم المرجعي</span>
-      <b id="ref">—</b>
-    </div>
+    <h2 class="done__title" id="done-title">شكراً لك</h2>
+    <p class="done__text" id="done-text">وصلت بياناتك وسُجِّلت بنجاح.</p>
+    <p class="done__note" id="done-note">
+      نُقدِّر وقتك في تعبئة الاستمارة بدقّة؛ فبياناتك أساسٌ لما يُبنى عليه من
+      خططٍ وبرامج تخدم المادة ومعلّميها.
+    </p>
     <p class="done__time" id="stamp"></p>
-    <div class="done__again">
-      <button type="button" class="btn btn--ghost" id="again">تسجيل استمارة أخرى</button>
-    </div>
   </section>
 
   <p class="foot">تُستخدم هذه البيانات لأغراض الإشراف التربوي فقط.</p>
@@ -850,7 +848,6 @@ document.getElementById('discard').addEventListener('click', () => {
   location.reload();
 });
 
-document.getElementById('again').addEventListener('click', () => location.reload());
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -899,7 +896,6 @@ form.addEventListener('submit', async (e) => {
   }
 
   try {
-    let id;
     if (existing) {
       /* تُحدَّث المفاتيح المعروفة وحدها، وتُحذف منها ما تُرك فارغاً هذه
          المرّة. سجلّات قديمة تحمل حقولاً من نسخة أسبق للنموذج، والاستبدال
@@ -907,21 +903,16 @@ form.addEventListener('submit', async (e) => {
       const patch = { updatedAt: serverTimestamp() };
       for (const key of KEYS) patch[key] = (key in values) ? values[key] : deleteField();
       await updateDoc(doc(db, 'teachers', existing.id), patch);
-      id = existing.id;
     } else {
-      const ref = await addDoc(collection(db, 'teachers'), Object.assign({}, values, { createdAt: serverTimestamp() }));
-      id = ref.id;
+      await addDoc(collection(db, 'teachers'), Object.assign({}, values, { createdAt: serverTimestamp() }));
     }
 
     clearDraft();
-    document.getElementById('done-title').textContent =
-      existing ? 'تم تحديث بياناتك' : 'تم استلام الاستمارة';
     document.getElementById('done-text').textContent = existing
       ? 'وجدنا استمارة سابقة لك، فحُدِّثت بما أدخلتَه الآن بدل تسجيل نسخة ثانية.'
-      : 'سُجِّلت البيانات بنجاح. احتفظ بالرقم المرجعي أدناه للمراجعة.';
-    document.getElementById('ref').textContent = 'TDC-' + id.slice(0, 6).toUpperCase();
+      : 'وصلت بياناتك وسُجِّلت بنجاح.';
     document.getElementById('stamp').textContent =
-      new Date().toLocaleString('ar-OM', { dateStyle: 'long', timeStyle: 'short' });
+      'سُجِّلت في ' + new Date().toLocaleString('ar-OM', { dateStyle: 'long', timeStyle: 'short' });
     docEl.hidden = true;
     done.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
