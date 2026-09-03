@@ -496,9 +496,11 @@ const PRIVATE = [
     { id:'schoolName_private',      name:'المدرسة', col:6, type:'select', ph:'اختر اسم المدرسة', options:OPT.privateSchools },
     { id:'wilayat_private',         name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
     { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select', ph:'اختر الموقع', options:OPT.location },
+    { id:'teacherCount_private',    name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:4, type:'number', num:true, im:'numeric', min:1, max:50, ph:'1' },
     { id:'schoolClasses_private',   name:'الصفوف', col:4, type:'select', ph:'اختر الصفوف', options:OPT.classes, help:'المقصود بالصفوف للمدرسة وليس للمعلم.' },
     { id:'curriculumSystem_private',name:'المنهاج', col:4, type:'select', ph:'اختر النظام', options:OPT.curriculum },
     { id:'evaluationSystem_private',name:'التقويم', col:4, type:'select', ph:'اختر النظام', options:OPT.evaluation },
+
     { id:'managerName_private',     name:'اسم مدير المدرسة', col:6 },
     { id:'managerPhone_private',    name:'هاتف مدير المدرسة', col:3, type:'tel', num:true, im:'tel' },
     { id:'otherPhone_private',      name:'هاتف آخر للمدرسة', col:3, type:'tel', num:true, im:'tel', optional:true }
