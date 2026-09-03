@@ -433,11 +433,32 @@ const db = getFirestore(app);
  * ==================================================================== */
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
 
+/* مناطق كل ولاية. قائمة «موقع المدرسة» تتبع الولاية المختارة، فلا تُعرض
+   على معلّم في مطرح مناطقُ السيب.
+   قائمة السيب مأخوذة من النموذج السابق وتؤكّدها السجلات القائمة. أمّا
+   بقيّة الولايات فمناطقها الرئيسة، وقد تحتاج مراجعة وإضافة — التعديل هنا
+   وحده يكفي. و«أخرى» في كل قائمة لئلّا يقف من لم يجد منطقته. */
+const AREAS = {
+  'مسقط':    ['مسقط','سداب','حرامل','الحاجر','كلبوه','البستان','الجصة','سيفة','قنتب','يتي',
+              'الخيران','وادي البيح','أخرى'],
+  'مطرح':    ['مطرح','روي','الوطية','القرم','الخوير الجنوبية','الوادي الكبير','دارسيت',
+              'الحمرية','رأس الحمراء','بيت الفلج','ريام','أخرى'],
+  'بوشر':    ['بوشر','الغبرة الشمالية','الغبرة الجنوبية','الخوير الشمالية','العذيبة الشمالية',
+              'العذيبة الجنوبية','المنومة','الأنصب','غلا','المسفاة','أخرى'],
+  'السيب':   ['السيب','المعبيلة الجنوبية','المعبيلة الشمالية','الخوض','قرية الخوض',
+              'الموالح الجنوبية','الموالح الشمالية','الحيل الجنوبية','الحيل الشمالية',
+              'سور ال حديد','حلة النصر','الشرادي','الجفنين','الرسيل','أخرى'],
+  'العامرات': ['العامرات','وادي عدي','المحج','حيل الغاف','الشريجة','وادي حطاط','أخرى'],
+  'قريات':   ['قريات','ضباب','دغمر','المزارع','حيل آل عبد السلام','الحائر','بمة','فنس','أخرى']
+};
+
+/* الحقل التابع ← أبوه وقائمة مناطقه */
+const DEPENDS = {
+  schoolLocation_private: { parent: 'wilayat_private', map: AREAS }
+};
+
 const OPT = {
   classes:  ['(1)','(2-1)','(3-1)','(4-1)','(5-1)','(6-1)','(7-1)','(8-1)','(9-1)','(10-1)','(11-1)','(12-1)','اخرى'],
-  location: ['المعبيلة الجنوبية','المعبيلة الشمالية','الخوض','قرية الخوض','الموالح الجنوبية',
-             'الموالح الشمالية','الحيل الجنوبية','الحيل الشمالية','سور ال حديد','حلة النصر',
-             'الشرادي','الجفنين','الرسيل','اخرى'],
   /* ولايات محافظة مسقط — الملف لتعليميتها */
   wilayat:    ['مسقط','مطرح','بوشر','السيب','العامرات','قريات'],
   marital:    ['متزوج','اعزب','متزوجة','عزباء'],
@@ -493,7 +514,8 @@ const PRIVATE = [
     { id:'schoolName_private',      name:'المدرسة', col:6, ph:'اكتب اسم المدرسة كاملاً',
       help:'كما هو مسجَّل رسمياً، مع الفرع إن وُجد.' },
     { id:'wilayat_private',         name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
-    { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select', ph:'اختر الموقع', options:OPT.location },
+    { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select',
+      ph:'اختر الولاية أوّلاً', options:[], dependsOn:'wilayat_private' },
     { id:'teacherCount_private',    name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:4, type:'number', num:true, im:'numeric', min:1, max:50, ph:'1' },
     { id:'schoolClasses_private',   name:'الصفوف', col:4, type:'select', ph:'اختر الصفوف', options:OPT.classes, help:'المقصود بالصفوف للمدرسة وليس للمعلم.' },
     { id:'curriculumSystem_private',name:'المنهاج', col:4, type:'select', ph:'اختر النظام', options:OPT.curriculum },
@@ -676,9 +698,13 @@ function cleanPhone(v, mobileOnly) {
   return { ok: true, value: d };
 }
 
+/* الأرقام المدنية القديمة سبع خانات والحديثة ثمان — خمسة عشر من تسعة
+   وثلاثين سجلاً قائم من سبع، فحصرها في ثمانٍ يرفض بيانات صحيحة. */
 function cleanCivilId(v) {
   const d = onlyDigits(v);
-  if (d.length !== 8) return { ok: false, value: d, why: 'الرقم المدني ثماني خانات' };
+  if (d.length < 7 || d.length > 8) {
+    return { ok: false, value: d, why: 'الرقم المدني سبع أو ثماني خانات' };
+  }
   return { ok: true, value: d };
 }
 
@@ -729,8 +755,9 @@ function renderField(f) {
 
   if (f.type === 'select') {
     const options = f.options.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+    const dep = f.dependsOn ? ` data-depends="${f.dependsOn}"` : '';
     control =
-      `<select id="${f.id}" name="${esc(f.name)}" class="${cls} is-empty" aria-describedby="${desc}"${req}>` +
+      `<select id="${f.id}" name="${esc(f.name)}" class="${cls} is-empty"${dep} aria-describedby="${desc}"${req}>` +
       `<option value="" disabled selected>${esc(f.ph || 'اختر من القائمة')}</option>${options}</select>`;
   } else {
     const attrs = [
@@ -768,6 +795,27 @@ const renderSection = (sec, i) =>
     `</legend>` +
     `<div class="grid">${sec.fields.map(renderField).join('')}</div>` +
   `</fieldset>`;
+
+/* يُعاد بناء خيارات الحقل التابع كلّما تغيّر أبوه. تُحفَظ القيمة السابقة
+   إن كانت ما زالت ضمن مناطق الولاية الجديدة، وتُمحى إن لم تكن. */
+function refillDependents(parentId) {
+  for (const childId of Object.keys(DEPENDS)) {
+    const d = DEPENDS[childId];
+    if (d.parent !== parentId) continue;
+    const child = document.getElementById(childId);
+    const parent = document.getElementById(parentId);
+    if (!child || !parent) continue;
+
+    const list = d.map[parent.value] || [];
+    const keep = child.value;
+    child.innerHTML =
+      `<option value="" disabled${keep && list.indexOf(keep) !== -1 ? '' : ' selected'}>` +
+      `${esc(list.length ? 'اختر الموقع' : 'اختر الولاية أوّلاً')}</option>` +
+      list.map((o) => `<option value="${esc(o)}"${o === keep ? ' selected' : ''}>${esc(o)}</option>`).join('');
+    child.value = list.indexOf(keep) !== -1 ? keep : '';
+    child.classList.toggle('is-empty', child.value === '');
+  }
+}
 
 /* ==================================================================== *
  *  التحقّق
@@ -894,6 +942,13 @@ function restoreDraft() {
 
   radio.checked = true;
   renderForm(d.type);
+  /* الآباء أوّلاً، ثمّ تُبنى خيارات التوابع، ثمّ تُوضع قيمها */
+  for (const parentId of new Set(Object.keys(DEPENDS).map((k) => DEPENDS[k].parent))) {
+    const el = document.getElementById(parentId);
+    const v = (d.values || {})[parentId];
+    if (el && v != null) { el.value = v; el.classList.toggle('is-empty', el.value === ''); }
+    refillDependents(parentId);
+  }
   for (const el of controls()) {
     const v = (d.values || {})[el.id];
     if (v == null) continue;
@@ -916,6 +971,7 @@ form.addEventListener('change', (e) => {
     summary.hidden = true;
   } else if (e.target.classList.contains('control')) {
     if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', e.target.value === '');
+    refillDependents(e.target.id);
     mark(e.target, fieldValid(e.target));
   }
   updateMeta();
