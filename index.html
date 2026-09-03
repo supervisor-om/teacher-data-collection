@@ -434,9 +434,6 @@ const db = getFirestore(app);
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
 
 const OPT = {
-  privateSchools: ['البيان','اجيال الثقافة','الجيل المبدع','منابع التفوق','الصفوة فرع المعبيلة',
-                   'المجد','الفردوس فرع الحيل','المنار','الريادة','جيفر بن الجلندى',
-                   'ضياء المستقبل','درة مجان','مشاعل مسقط فرع سور ال حديد'],
   classes:  ['(1)','(2-1)','(3-1)','(4-1)','(5-1)','(6-1)','(7-1)','(8-1)','(9-1)','(10-1)','(11-1)','(12-1)','اخرى'],
   location: ['المعبيلة الجنوبية','المعبيلة الشمالية','الخوض','قرية الخوض','الموالح الجنوبية',
              'الموالح الشمالية','الحيل الجنوبية','الحيل الشمالية','سور ال حديد','حلة النصر',
@@ -493,7 +490,8 @@ const GOV = [
 
 const PRIVATE = [
   { title: 'بيانات المدرسة', fields: [
-    { id:'schoolName_private',      name:'المدرسة', col:6, type:'select', ph:'اختر اسم المدرسة', options:OPT.privateSchools },
+    { id:'schoolName_private',      name:'المدرسة', col:6, ph:'اكتب اسم المدرسة كاملاً',
+      help:'كما هو مسجَّل رسمياً، مع الفرع إن وُجد.' },
     { id:'wilayat_private',         name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
     { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select', ph:'اختر الموقع', options:OPT.location },
     { id:'teacherCount_private',    name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:4, type:'number', num:true, im:'numeric', min:1, max:50, ph:'1' },
