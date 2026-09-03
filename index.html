@@ -441,6 +441,8 @@ const OPT = {
   location: ['المعبيلة الجنوبية','المعبيلة الشمالية','الخوض','قرية الخوض','الموالح الجنوبية',
              'الموالح الشمالية','الحيل الجنوبية','الحيل الشمالية','سور ال حديد','حلة النصر',
              'الشرادي','الجفنين','الرسيل','اخرى'],
+  /* ولايات محافظة مسقط — الملف لتعليميتها */
+  wilayat:    ['مسقط','مطرح','بوشر','السيب','العامرات','قريات'],
   marital:    ['متزوج','اعزب','متزوجة','عزباء'],
   language:   ['عربي','انجليزي','عربي وانجليزي'],
   curriculum: ['منهاج حكومي','منهاج خاص','منهاج حكومي + خاص'],
@@ -456,8 +458,9 @@ const OPT = {
  * ==================================================================== */
 const GOV = [
   { title: 'بيانات المدرسة', fields: [
-    { id:'schoolName_gov',   name:'المدرسة', col:8, ph:'اكتب اسم المدرسة كاملاً', help:'مثال: انس بن النظر (7-10)' },
-    { id:'teacherCount_gov', name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:4, type:'number', num:true, im:'numeric', min:1, max:50, ph:'2' },
+    { id:'schoolName_gov',   name:'المدرسة', col:6, ph:'اكتب اسم المدرسة كاملاً', help:'مثال: انس بن النظر (7-10)' },
+    { id:'wilayat_gov',      name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
+    { id:'teacherCount_gov', name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:3, type:'number', num:true, im:'numeric', min:1, max:50, ph:'2' },
     { id:'managerName_gov',  name:'اسم مدير المدرسة', col:6 },
     { id:'managerPhone_gov', name:'هاتف مدير المدرسة', label:'رقم هاتف المدير', col:6, type:'tel', num:true, im:'tel' }
   ]},
@@ -466,7 +469,8 @@ const GOV = [
     { id:'civilId_gov',      name:'الرقم المدني', col:3, num:true, im:'numeric' },
     { id:'dob_gov',          name:'تاريخ الميلاد', col:3, type:'date', ac:'bday' },
     { id:'teacherPhone_gov', name:'الهاتف', col:4, type:'tel', num:true, im:'tel', ac:'tel' },
-    { id:'email_gov',        name:'البريد الالكتروني', col:8, type:'email', ac:'email', ph:'salim@moe.om', help:'البريد الوزاري إن أمكن.' }
+    { id:'maritalStatus_gov',name:'الحالة الاجتماعية', col:4, type:'select', ph:'الرجاء التحديد', options:OPT.marital },
+    { id:'email_gov',        name:'البريد الالكتروني', col:4, type:'email', ac:'email', ph:'salim@moe.om', help:'البريد الوزاري إن أمكن.' }
   ]},
   { title: 'المؤهل والتخصص', fields: [
     { id:'university_gov',    name:'الجامعة', col:4 },
@@ -490,7 +494,8 @@ const GOV = [
 const PRIVATE = [
   { title: 'بيانات المدرسة', fields: [
     { id:'schoolName_private',      name:'المدرسة', col:6, type:'select', ph:'اختر اسم المدرسة', options:OPT.privateSchools },
-    { id:'schoolLocation_private',  name:'موقع المدرسة', col:6, type:'select', ph:'اختر الموقع', options:OPT.location },
+    { id:'wilayat_private',         name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
+    { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select', ph:'اختر الموقع', options:OPT.location },
     { id:'schoolClasses_private',   name:'الصفوف', col:4, type:'select', ph:'اختر الصفوف', options:OPT.classes, help:'المقصود بالصفوف للمدرسة وليس للمعلم.' },
     { id:'curriculumSystem_private',name:'المنهاج', col:4, type:'select', ph:'اختر النظام', options:OPT.curriculum },
     { id:'evaluationSystem_private',name:'التقويم', col:4, type:'select', ph:'اختر النظام', options:OPT.evaluation },
@@ -522,7 +527,7 @@ const PRIVATE = [
 /* مفاتيح قاعدة البيانات — يُحفظ ما ورد فيها فقط */
 const KEYS = [
   'المشرف',
-  'نوع المدرسة','المدرسة','الصفوف','اسم المعلم','عدد الحصص','الصفوف التي يدرسها','التخصص',
+  'نوع المدرسة','الولاية','المدرسة','الصفوف','اسم المعلم','عدد الحصص','الصفوف التي يدرسها','التخصص',
   'الهاتف','الجنسية','المؤهل','الحالة الاجتماعية','اللغة التي يتم تدريس بها المادة',
   'اسم مدير المدرسة','هاتف مدير المدرسة','المنهاج','التقويم','رياضة (11)','رياضة (12)',
   'الموافقة على التعيين','موقع المدرسة','هاتف آخر للمدرسة',
