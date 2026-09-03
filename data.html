@@ -81,6 +81,24 @@ select.control{cursor:pointer;padding-left:32px;
 
 .note{margin:0 0 16px;padding:10px 13px;background:var(--muted);border:1px solid var(--line);
   border-radius:var(--r);font-size:12.5px;color:var(--ink-2)}
+.note:empty{display:none}
+
+/* بطاقات العدّ. أرقام مجرّدة لا رسم بياني، فلا ألوان تصنيفية فيها:
+   الرقم بحبر أساسي واللفظ بحبر خافت، والتمييز بالحجم لا باللون. */
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.stat{flex:1 1 150px;min-width:130px;padding:11px 14px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.stat__n{display:block;font-size:23px;font-weight:600;line-height:1.15;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat__l{display:block;margin-top:3px;font-size:12px;color:var(--ink-3)}
+.stat__sub{font-size:12.5px;font-weight:500;color:var(--ink-3);margin-right:5px}
+.stat--warn .stat__n{color:#7a5c00}
+.stat--warn{background:#fffdf5;border-color:#eadb9a}
+@media(max-width:560px){
+  .stat{flex:1 1 calc(50% - 5px);min-width:0}
+  .stat__n{font-size:20px}
+}
+@media print{.stats{display:none !important}}
 
 /* ------------------------------------------------------------ جدول -- */
 /* الجدول يمرّر داخل إطاره أفقياً ورأسياً، فيثبت رأسه عند حافّة الإطار.
@@ -237,6 +255,15 @@ td.gap{width:1%;text-align:center}
       <span id="undo-text"></span>
       <button type="button" class="btn" id="undo-btn">تراجع عن الحذف</button>
     </p>
+
+    <div class="stats" id="stats">
+      <div class="stat"><span class="stat__n" id="s-schools">—</span>
+        <span class="stat__l">مدرسة أرسلت بياناتها</span></div>
+      <div class="stat"><span class="stat__n" id="s-teachers">—</span>
+        <span class="stat__l">معلّماً مسجَّلاً</span></div>
+      <div class="stat stat--warn"><span class="stat__n" id="s-gaps">—</span>
+        <span class="stat__l">تنقصهم بيانات</span></div>
+    </div>
 
     <p class="note" id="note"></p>
 
@@ -545,13 +572,26 @@ function current() {
     rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
   }
   const dir = sortDir;
-  return rows.sort((a, b) => {
+  rows.sort((a, b) => {
     const x = String(a[sortKey] == null ? '' : a[sortKey]);
     const y = String(b[sortKey] == null ? '' : b[sortKey]);
     const nx = Number(norm(x)), ny = Number(norm(y));
     if (x !== '' && y !== '' && !isNaN(nx) && !isNaN(ny)) return (nx - ny) * dir;
     return x.localeCompare(y, 'ar') * dir;
   });
+
+  /* معلّمو المدرسة الواحدة يبقون متتالين مهما كان عمود الفرز: تُرتَّب
+     الصفوف أوّلاً بالعمود المختار، ثمّ تُجمَّع بالمدرسة على ترتيب أوّل
+     ظهور — فتَتبع المجموعاتُ الفرزَ ولا يتفرّق معلّمو مدرسة بينها. */
+  const groups = new Map();
+  for (const r of rows) {
+    const k = (r['المدرسة'] || '').trim() || '\u2014';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  const out = [];
+  for (const g of groups.values()) for (const r of g) out.push(r);
+  return out;
 }
 
 function fillSchools() {
@@ -599,8 +639,19 @@ function render() {
     }).join('') + '</tr>').join('');
 
   const total = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r)).length;
-  const schools = new Set(rows.map((r) => r['المدرسة']).filter(Boolean)).size;
+  const schools = new Set(rows.map((r) => (r['المدرسة'] || '').trim()).filter(Boolean)).size;
   const gaps = rows.filter((r) => missingIn(r).length).length;
+
+  /* العدّادات تعكس ما هو معروض. حين تحجب تصفيةٌ بعضَ السجلات يُذكر
+     الأصل بجانب الرقم، لئلّا يُقرأ الجزء على أنّه الكلّ. */
+  const allRows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
+  const allSchools = new Set(allRows.map((r) => (r['المدرسة'] || '').trim()).filter(Boolean)).size;
+  const filtered = rows.length !== total;
+  el('s-schools').innerHTML = schools +
+    (filtered && allSchools !== schools ? `<span class="stat__sub">من ${allSchools}</span>` : '');
+  el('s-teachers').innerHTML = rows.length +
+    (filtered ? `<span class="stat__sub">من ${total}</span>` : '');
+  el('s-gaps').textContent = gaps;
   /* نطاق فارغ: «٠ معلّماً… جميعهم مكتملون» عبثٌ يراه كل مشرف لم يُسنَد
      إليه أحد بعد، فيُستبدَل بما يشرح الحال ويدلّ على الخطوة التالية. */
   if (!total) {
@@ -609,11 +660,7 @@ function render() {
         + ' أو أضِفهم بزرّ «إضافة معلّم».'
       : `لا سجلات في ${type} بعد.`;
   } else {
-    const head = rows.length === total
-      ? `${total} معلّماً في ${schools} مدرسة.`
-      : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
-    el('note').textContent = head +
-      (rows.length ? (gaps ? `  ينقص ${gaps} منهم حقلٌ أو أكثر.` : '  جميعهم مكتملون.') : '');
+    el('note').textContent = rows.length && !gaps ? 'جميع السجلات المعروضة مكتملة.' : '';
   }
 
   el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية' && inScope(r)).length;
