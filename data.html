@@ -601,17 +601,27 @@ function render() {
   const total = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r)).length;
   const schools = new Set(rows.map((r) => r['المدرسة']).filter(Boolean)).size;
   const gaps = rows.filter((r) => missingIn(r).length).length;
-  const head = rows.length === total
-    ? `${total} معلّماً في ${schools} مدرسة.`
-    : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
-  el('note').textContent = head + (gaps ? `  ينقص ${gaps} منهم حقلٌ أو أكثر.` : '  جميعهم مكتملون.');
+  /* نطاق فارغ: «٠ معلّماً… جميعهم مكتملون» عبثٌ يراه كل مشرف لم يُسنَد
+     إليه أحد بعد، فيُستبدَل بما يشرح الحال ويدلّ على الخطوة التالية. */
+  if (!total) {
+    el('note').textContent = scope
+      ? 'لا معلّمين مُسنَدين إليك بعد. يظهرون هنا فور تعبئتهم الاستمارة من رابطك،'
+        + ' أو أضِفهم بزرّ «إضافة معلّم».'
+      : `لا سجلات في ${type} بعد.`;
+  } else {
+    const head = rows.length === total
+      ? `${total} معلّماً في ${schools} مدرسة.`
+      : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
+    el('note').textContent = head +
+      (rows.length ? (gaps ? `  ينقص ${gaps} منهم حقلٌ أو أكثر.` : '  جميعهم مكتملون.') : '');
+  }
 
   el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية' && inScope(r)).length;
   el('n-priv').textContent = ALL.filter((r) => r['نوع المدرسة'] === 'خاصة'  && inScope(r)).length;
   el('state').hidden = rows.length > 0;
   if (!rows.length) {
     el('state').className = 'state';
-    el('state').textContent = 'لا توجد سجلات مطابقة.';
+    el('state').textContent = total ? 'لا توجد سجلات مطابقة لهذه التصفية.' : 'لا سجلات لعرضها.';
   }
 }
 
