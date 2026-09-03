@@ -301,6 +301,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
          serverTimestamp, deleteField }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { buildWorkbook } from './xlsx-export.js';
 
 /* ==================================================================== *
  *  رمز الدخول
@@ -801,26 +802,37 @@ el('reveal').addEventListener('click', () => {
   render();
 });
 
-/* التصدير يحمل القيم كاملة غير مخفيّة — الملف يُحفظ على جهازك */
-el('export').addEventListener('click', () => {
-  const cols = COLS[type];
-  const rows = current();
-  const cell = (v) => {
-    const s = v == null ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  };
-  const csv = [cols.map(cell).join(',')]
-    .concat(rows.map((r) => cols.map((c) => cell(r[c])).join(',')))
-    .join('\r\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `معلمو-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/* التصدير يبني ملف Excel بتنسيق ملفَّي المشرف — بقالبه وخطوطه وحدوده
+   وإعداد طباعته — لا جدولاً خاماً. القيم فيه كاملة غير مخفيّة، فالملف
+   يُحفظ على جهاز المشرف. */
+el('export').addEventListener('click', async () => {
+  const btn = el('export');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'جارٍ التجهيز…';
+  try {
+    const rows = current();
+    if (!rows.length) {
+      el('note').textContent = 'لا سجلات لتصديرها بهذه التصفية.';
+      return;
+    }
+    const blob = await buildWorkbook(type, rows);
+    const who = scope || el('sup').value || 'الجميع';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${who} - ${type}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    console.error('[export] تعذّر التصدير:', err);
+    el('note').textContent = 'تعذّر تجهيز ملف Excel: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 });
 
 /* من فتح البوّابة في هذا التبويب لا يُسأل الرمز ثانيةً حتى يُغلقه */
