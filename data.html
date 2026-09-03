@@ -104,6 +104,11 @@ mark{background:#fdf3c8;color:inherit;padding:0 1px;border-radius:2px}
 
 /* -------------------------------------------------------- إجراءات -- */
 td.act{width:1%;white-space:nowrap;padding:4px 8px}
+td.gap{width:1%;text-align:center}
+.chip{display:inline-block;min-width:22px;padding:1px 7px;border-radius:999px;
+  font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;
+  background:#fdf3c8;color:#7a5c00;border:1px solid #eadb9a;cursor:help}
+.chip--ok{background:#e7f4ef;color:var(--ok);border-color:#c9e6db}
 .iconbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
   padding:0;margin:0 1px;border:1px solid transparent;border-radius:var(--r);
   background:none;color:var(--ink-3);cursor:pointer;transition:color .15s,background-color .15s,border-color .15s}
@@ -223,7 +228,9 @@ td.act{width:1%;white-space:nowrap;padding:4px 8px}
       <input type="search" class="control search" id="q" placeholder="بحث في الاسم أو المدرسة أو الرقم…" aria-label="بحث">
       <select class="control" id="school" aria-label="تصفية بالمدرسة"><option value="">كل المدارس</option></select>
       <span id="sup-wrap" hidden><select class="control" id="sup" aria-label="تصفية بالمشرف"><option value="">كل المشرفين</option></select></span>
+      <button type="button" class="btn" id="only-gaps" aria-pressed="false">الناقصة فقط</button>
       <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
+      <button type="button" class="btn btn--solid" id="add">+ إضافة معلّم</button>
     </div>
 
     <p class="dead" id="undo" hidden>
@@ -402,6 +409,24 @@ document.getElementById('gate-form').addEventListener('submit', async (e) => {
  * ==================================================================== */
 const REF  = '#المرجع';
 const UNASSIGNED = 'غير مُسند';
+
+/* الحقول التي يُقاس عليها اكتمال السجلّ. «المشرف» خارجها لأنّ إسناده شأن
+   إداري لا بيانات يُدلي بها المعلّم. */
+const REQUIRED = {
+  'حكومية': ['الولاية', 'المدرسة', 'عدد معلمي الرياضة', 'اسم المعلم', 'الرقم المدني',
+             'تاريخ الميلاد', 'الهاتف', 'البريد الالكتروني', 'الجامعة', 'المؤهل', 'التخصص',
+             'رقم الملف', 'سنة التعيين', 'الدرجة المالية', 'عدد الحصص', 'الفصول التي تدرسها',
+             'السكن الحالي', 'العنوان الدائم', 'الحالة الاجتماعية', 'اسم مدير المدرسة',
+             'هاتف مدير المدرسة'],
+  'خاصة':   ['الولاية', 'المدرسة', 'موقع المدرسة', 'عدد معلمي الرياضة', 'الصفوف', 'المنهاج',
+             'التقويم', 'اسم المعلم', 'الجنسية', 'الحالة الاجتماعية', 'الهاتف', 'المؤهل',
+             'التخصص', 'الصفوف التي يدرسها', 'اللغة التي يتم تدريس بها المادة',
+             'الموافقة على التعيين', 'رياضة (11)', 'رياضة (12)', 'اسم مدير المدرسة',
+             'هاتف مدير المدرسة']
+};
+
+const missingIn = (r) => (REQUIRED[r['نوع المدرسة']] || [])
+  .filter((k) => !String(r[k] == null ? '' : r[k]).trim());
 const SENSITIVE = new Set(['الرقم المدني', 'تاريخ الميلاد', 'الهاتف', 'هاتف مدير المدرسة',
                            'هاتف آخر للمدرسة', 'البريد الالكتروني']);
 const NUMERIC = new Set(['الرقم المدني', 'الهاتف', 'هاتف مدير المدرسة', 'هاتف آخر للمدرسة',
@@ -445,6 +470,7 @@ let type = 'حكومية';
 let sortKey = 'المدرسة';
 let sortDir = 1;
 let revealed = false;
+let onlyGaps = false;
 
 const el = (id) => document.getElementById(id);
 const ESC = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
@@ -514,6 +540,7 @@ function current() {
   let rows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
   if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
   if (school) rows = rows.filter((r) => r['المدرسة'] === school);
+  if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
   if (q) {
     rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
   }
@@ -558,12 +585,12 @@ function render() {
   const rows = current();
   const q = norm(el('q').value);
 
-  el('head').innerHTML = '<th></th><th></th>' + cols.map((c) =>
+  el('head').innerHTML = '<th></th><th></th><th title="الحقول الناقصة">ناقص</th>' + cols.map((c) =>
     `<th data-col="${esc(c)}">${esc(c === REF ? 'المرجع' : c)}` +
     (sortKey === c ? `<span class="dir">${sortDir > 0 ? '▲' : '▼'}</span>` : '') + '</th>').join('');
 
   el('rows').innerHTML = rows.map((r, i) =>
-    '<tr><td class="idx">' + (i + 1) + '</td>' + actions(r) + cols.map((c) => {
+    '<tr><td class="idx">' + (i + 1) + '</td>' + actions(r) + gapCell(r) + cols.map((c) => {
       const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '');
       if (!raw) return `<td class="${cls}">—</td>`;
@@ -573,9 +600,11 @@ function render() {
 
   const total = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r)).length;
   const schools = new Set(rows.map((r) => r['المدرسة']).filter(Boolean)).size;
-  el('note').textContent = rows.length === total
+  const gaps = rows.filter((r) => missingIn(r).length).length;
+  const head = rows.length === total
     ? `${total} معلّماً في ${schools} مدرسة.`
     : `عرض ${rows.length} من ${total} معلّماً — ${schools} مدرسة.`;
+  el('note').textContent = head + (gaps ? `  ينقص ${gaps} منهم حقلٌ أو أكثر.` : '  جميعهم مكتملون.');
 
   el('n-gov').textContent  = ALL.filter((r) => r['نوع المدرسة'] === 'حكومية' && inScope(r)).length;
   el('n-priv').textContent = ALL.filter((r) => r['نوع المدرسة'] === 'خاصة'  && inScope(r)).length;
@@ -613,11 +642,19 @@ const OPTIONS = {
 };
 
 let editing = null;    /* السجلّ المفتوح في نافذة التعديل */
+let creating = false;  /* هل النافذة لإضافة سجلّ جديد؟ */
 let deleting = null;   /* السجلّ المعروض في تأكيد الحذف */
 let lastDeleted = null;
 
 const byId = (id) => ALL.find((r) => r.__id === id) || null;
 const mayTouch = (r) => !!r && (!scope || r['المشرف'] === scope);
+
+function gapCell(r) {
+  const gaps = missingIn(r);
+  if (!gaps.length) return '<td class="gap"><span class="chip chip--ok" title="مكتمل">\u2713</span></td>';
+  return '<td class="gap"><span class="chip" title="' + esc(gaps.join('\u060c ')) + '">'
+       + gaps.length + '</span></td>';
+}
 
 function actions(r) {
   if (!mayTouch(r)) return '<td class="act"></td>';
@@ -627,12 +664,28 @@ function actions(r) {
     '</td>';
 }
 
-function openEdit(id) {
-  const r = byId(id);
-  if (!mayTouch(r)) return;
+/* سجلّ جديد يُبنى فارغاً بنوع التبويب الحالي ومشرفه، ثمّ يمرّ بالنافذة
+   نفسها — فقواعد الصلاحية والحفظ واحدة للإضافة والتعديل. */
+function openAdd() {
+  const who = scope || el('sup').value;
+  if (!who) {
+    el('note').textContent = 'اختر مشرفاً من القائمة أوّلاً ليُسنَد إليه المعلّم الجديد.';
+    return;
+  }
+  openEdit(null, { 'نوع المدرسة': type, 'المشرف': who });
+}
+
+function openEdit(id, draft) {
+  const r = draft || byId(id);
+  if (!r || (!draft && !mayTouch(r)) || (draft && !mayTouch(r))) return;
   editing = r;
+  creating = !!draft;
+  el('edit-title').textContent = creating ? 'إضافة معلّم' : 'تعديل بيانات معلّم';
+  el('edit-save').textContent = creating ? 'حفظ المعلّم' : 'حفظ التعديل';
   el('edit-msg').textContent = '';
-  el('edit-sub').textContent = (r['اسم المعلم'] || 'بلا اسم') + ' — ' + (r['المدرسة'] || 'بلا مدرسة');
+  el('edit-sub').textContent = creating
+    ? (r['نوع المدرسة'] + ' — المشرف: ' + r['المشرف'])
+    : ((r['اسم المعلم'] || 'بلا اسم') + ' — ' + (r['المدرسة'] || 'بلا مدرسة'));
   el('edit-grid').innerHTML = COLS[r['نوع المدرسة']].filter((c) => c !== REF).map((c, i) => {
     const val = r[c] == null ? '' : String(r[c]);
     const fid = 'f' + i;
@@ -650,13 +703,15 @@ function openEdit(id) {
   if (first) first.focus();
 }
 
-function closeEdit() { el('edit-ov').hidden = true; editing = null; }
+function closeEdit() { el('edit-ov').hidden = true; editing = null; creating = false; }
 
 async function saveEdit() {
   if (!mayTouch(editing)) { closeEdit(); return; }
   const btn = el('edit-save');
+  const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'جارٍ الحفظ…';
+
   const patch = { updatedAt: serverTimestamp() };
   const next = {};
   for (const f of el('edit-grid').querySelectorAll('.control')) {
@@ -666,10 +721,27 @@ async function saveEdit() {
     patch[key] = v === '' ? deleteField() : v;
     if (v !== '') next[key] = v;
   }
+
+  if (creating && !next['اسم المعلم']) {
+    el('edit-msg').textContent = 'اسم المعلّم مطلوب.';
+    btn.disabled = false;
+    btn.textContent = label;
+    return;
+  }
+
   try {
-    await updateDoc(doc(db, 'teachers', editing.__id), patch);
-    for (const c of COLS[editing['نوع المدرسة']]) if (c !== REF) delete editing[c];
-    Object.assign(editing, next);
+    if (creating) {
+      const rec = Object.assign({ 'نوع المدرسة': editing['نوع المدرسة'] }, next,
+                                { createdAt: serverTimestamp(), addedBy: editing['المشرف'] });
+      const ref = await addDoc(collection(db, 'teachers'), rec);
+      rec.__id = ref.id;
+      rec[REF] = 'TDC-' + ref.id.slice(0, 6).toUpperCase();
+      ALL.push(rec);
+    } else {
+      await updateDoc(doc(db, 'teachers', editing.__id), patch);
+      for (const c of COLS[editing['نوع المدرسة']]) if (c !== REF) delete editing[c];
+      Object.assign(editing, next);
+    }
     closeEdit();
     fillSchools();
     render();
@@ -678,7 +750,7 @@ async function saveEdit() {
     el('edit-msg').textContent = 'تعذّر الحفظ. تحقّق من الاتصال ثمّ أعد المحاولة.';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'حفظ التعديل';
+    btn.textContent = label;
   }
 }
 
@@ -750,6 +822,15 @@ el('rows').addEventListener('click', (e) => {
   if (!b) return;
   const id = b.getAttribute('data-edit');
   if (id) openEdit(id); else askDelete(b.getAttribute('data-del'));
+});
+
+el('add').addEventListener('click', openAdd);
+el('only-gaps').addEventListener('click', () => {
+  onlyGaps = !onlyGaps;
+  const b = el('only-gaps');
+  b.setAttribute('aria-pressed', String(onlyGaps));
+  b.classList.toggle('btn--on', onlyGaps);
+  render();
 });
 
 el('edit-cancel').addEventListener('click', closeEdit);

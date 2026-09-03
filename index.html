@@ -644,6 +644,80 @@ async function findExisting(type, field, value) {
 }
 
 /* ==================================================================== *
+ *  تنظيف الأرقام والتحقّق من صيغتها
+ *  واحد وعشرون هاتفاً في السجلات القائمة خارج الصيغة: «+968 9421 7617»
+ *  و«00000000000» و«-»، وأحدها يحمل محرف اتجاه مخفيّاً (U+202D). وسبعة
+ *  عشر رقماً مدنياً ليست ثماني خانات. المنع عند الإدخال أرخص من المطاردة.
+ * ==================================================================== */
+const AR_NUM = '٠١٢٣٤٥٦٧٨٩';
+const FA_NUM = '۰۱۲۳۴۵۶۷۸۹';
+
+/* يزيل محارف الاتجاه المخفيّة ويحوّل الأرقام العربية والفارسية إلى لاتينية */
+function tidyDigits(v) {
+  return String(v)
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/[٠-٩۰-۹]/g, (d) => {
+      const i = AR_NUM.indexOf(d);
+      return String(i >= 0 ? i : FA_NUM.indexOf(d));
+    });
+}
+
+const onlyDigits = (v) => tidyDigits(v).replace(/\D/g, '');
+
+/* هاتف المعلّم نقّال: ثماني خانات تبدأ بـ٧ أو ٩. ورمز الدولة يُقتطع.
+   هاتف المدرسة قد يكون أرضياً (يبدأ بـ٢) فيُقبل بثماني خانات أيّاً كانت. */
+function cleanPhone(v, mobileOnly) {
+  let d = onlyDigits(v);
+  if (d.length === 11 && d.startsWith('968')) d = d.slice(3);
+  else if (d.length === 12 && d.startsWith('00968')) d = d.slice(5);
+  else if (d.length === 13 && d.startsWith('00968')) d = d.slice(5);
+  if (d.length !== 8) return { ok: false, value: d, why: 'رقم الهاتف ثماني خانات' };
+  if (mobileOnly && !/^[79]/.test(d)) {
+    return { ok: false, value: d, why: 'رقم النقّال يبدأ بـ ٧ أو ٩' };
+  }
+  return { ok: true, value: d };
+}
+
+function cleanCivilId(v) {
+  const d = onlyDigits(v);
+  if (d.length !== 8) return { ok: false, value: d, why: 'الرقم المدني ثماني خانات' };
+  return { ok: true, value: d };
+}
+
+function cleanCount(v, max, label) {
+  const d = onlyDigits(v);
+  if (!d) return { ok: false, value: d, why: 'أدخل رقماً' };
+  if (Number(d) < 1 || Number(d) > max) {
+    return { ok: false, value: d, why: label + ' بين ١ و' + max };
+  }
+  return { ok: true, value: d };
+}
+
+/* الحقل ← دالّة تنظيفه وتحقّقه */
+const CLEANERS = {
+  teacherPhone_gov:     (v) => cleanPhone(v, true),
+  teacherPhone_private: (v) => cleanPhone(v, true),
+  managerPhone_gov:     (v) => cleanPhone(v, false),
+  managerPhone_private: (v) => cleanPhone(v, false),
+  otherPhone_private:   (v) => cleanPhone(v, false),
+  civilId_gov:          cleanCivilId,
+  teacherCount_gov:     (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
+  teacherCount_private: (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
+  financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية')
+};
+
+/* يُطبَّق عند مغادرة الحقل لا مع كل حرف، لئلّا يُقاطَع من يكتب */
+function applyCleaner(el) {
+  const fn = CLEANERS[el.id];
+  if (!fn) return null;
+  const raw = String(el.value).trim();
+  if (!raw) return null;
+  const res = fn(raw);
+  if (res.value && res.value !== raw) el.value = res.value;
+  return res;
+}
+
+/* ==================================================================== *
  *  البناء
  * ==================================================================== */
 const ESC = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
@@ -703,6 +777,7 @@ const renderSection = (sec, i) =>
 function messageFor(el) {
   const v = el.validity;
   if (v.valueMissing)   return 'هذا الحقل مطلوب';
+  if (el.dataset && el.dataset.why) return el.dataset.why;
   if (v.typeMismatch)   return el.type === 'email' ? 'صيغة البريد الإلكتروني غير صحيحة' : 'القيمة غير صالحة';
   if (v.rangeUnderflow) return `القيمة يجب ألّا تقلّ عن ${el.min}`;
   if (v.rangeOverflow)  return `القيمة يجب ألّا تزيد عن ${el.max}`;
@@ -712,6 +787,21 @@ function messageFor(el) {
 function labelOf(el) {
   const l = document.querySelector(`label[for="${el.id}"]`);
   return l ? l.textContent.replace('(اختياري)', '').trim() : el.name;
+}
+
+/* صحّة الحقل = صحّة المتصفّح + قاعدة الصيغة إن وُجدت */
+function fieldValid(el) {
+  if (!el.checkValidity()) {
+    if (el.dataset) delete el.dataset.why;
+    return false;
+  }
+  const res = applyCleaner(el);
+  if (res && !res.ok) {
+    el.dataset.why = res.why;
+    return false;
+  }
+  if (el.dataset) delete el.dataset.why;
+  return true;
 }
 
 function mark(el, valid) {
@@ -828,7 +918,7 @@ form.addEventListener('change', (e) => {
     summary.hidden = true;
   } else if (e.target.classList.contains('control')) {
     if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', e.target.value === '');
-    mark(e.target, e.target.checkValidity());
+    mark(e.target, fieldValid(e.target));
   }
   updateMeta();
   scheduleSave();
@@ -837,7 +927,7 @@ form.addEventListener('change', (e) => {
 form.addEventListener('input', (e) => {
   if (!e.target.classList.contains('control')) return;
   const wrap = e.target.closest('[data-field]');
-  if (wrap && wrap.classList.contains('is-invalid') && e.target.checkValidity()) mark(e.target, true);
+  if (wrap && wrap.classList.contains('is-invalid') && fieldValid(e.target)) mark(e.target, true);
   updateMeta();
   scheduleSave();
 });
@@ -863,7 +953,7 @@ form.addEventListener('submit', async (e) => {
   const invalid = [];
   const sup = document.getElementById('supervisor');   /* موجود حين لا يحدّده الرابط */
   for (const el of (sup ? [sup] : []).concat(controls())) {
-    const ok = el.checkValidity();
+    const ok = fieldValid(el);
     mark(el, ok);
     if (!ok) invalid.push(el);
   }
