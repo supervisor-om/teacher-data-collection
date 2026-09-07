@@ -235,7 +235,9 @@ export const LAYOUT = {
       "AA": {
         "k": "هاتف آخر للمدرسة"
       },
-      "AB": null
+      "AB": {
+        "k": "جنسية مدير المدرسة"
+      }
     },
     "numeric": [
       "D",
