@@ -384,6 +384,7 @@ input[type=number].control{-moz-appearance:textfield}
         <span class="actions__meta" id="meta"></span>
         <button type="submit" class="btn" id="submit">إرسال الاستمارة</button>
       </div>
+      <datalist id="schools-list"></datalist>
     </form>
   </div>
 
@@ -476,7 +477,7 @@ const OPT = {
  * ==================================================================== */
 const GOV = [
   { title: 'بيانات المدرسة', fields: [
-    { id:'schoolName_gov',   name:'المدرسة', col:6, ph:'اكتب اسم المدرسة كاملاً', help:'يُوحَّد تلقائياً إلى: انس بن النظر (7-10)' },
+    { id:'schoolName_gov',   name:'المدرسة', col:6, list:'schools-list', ph:'اكتب اسم المدرسة كاملاً', help:'يُوحَّد تلقائياً إلى: انس بن النظر (7-10)' },
     { id:'wilayat_gov',      name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
     { id:'teacherCount_gov', name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:3, type:'number', num:true, im:'numeric', min:1, max:50, ph:'2' },
     { id:'managerName_gov',  name:'اسم مدير المدرسة', col:6 },
@@ -511,7 +512,7 @@ const GOV = [
 
 const PRIVATE = [
   { title: 'بيانات المدرسة', fields: [
-    { id:'schoolName_private',      name:'المدرسة', col:6, ph:'اكتب اسم المدرسة كاملاً',
+    { id:'schoolName_private',      name:'المدرسة', col:6, list:'schools-list', ph:'اكتب اسم المدرسة كاملاً',
       help:'كما هو مسجَّل رسمياً، مع الفرع إن وُجد.' },
     { id:'wilayat_private',         name:'الولاية', col:3, type:'select', ph:'اختر الولاية', options:OPT.wilayat },
     { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select',
@@ -752,6 +753,63 @@ function cleanGrades(raw) {
   return { ok: true, value: [...new Set(nums)].sort((x, y) => x - y).join("،") };
 }
 
+/* مفتاح مطابقة المدرسة: يوحّد صيغ الاسم الواحد كي يُعرف أنّ
+   «الحارث بن خالد» و«الحارث بن خالد (6-9)» مدرسة واحدة. للمطابقة
+   وحدها، لا للعرض. */
+const schoolKey = (v) => tidyDigits(String(v ?? ""))
+  .replace(/[إأآ]/g, "ا").replace(/[ةه]/g, "ه").replace(/[ىي]/g, "ي")
+  .replace(/[ً-ْـ]/g, "")
+  .replace(/^مدرس[ةه]\s+/, "")
+  .replace(/\(?\s*(?:من\s*)?\d{1,2}\s*[-–—_]\s*\d{1,2}\s*\)?/g, " ")
+  .replace(/[()،,.:\-–—_/]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim().toLowerCase();
+
+/* المدارس المعروفة: تُبنى من السجلات القائمة لا من قائمة خارجية.
+   أوّل صيغة كاملة تُدخَل تصير المرجع، وكلّ صيغة تالية لنفس المدرسة
+   تُصحَّح إليها — فينتهي تشتّت الاسم الواحد بلا حاجة إلى قائمة رسمية.
+   المرجع هو ما ذُكر فيه نطاق الصفوف، ثمّ الأكثر تكراراً، ثمّ الأطول. */
+const KNOWN_SCHOOLS = { "حكومية": new Map(), "خاصة": new Map() };
+const hasRange = (v) => /\(\d{1,2}(-\d{1,2})?\)\s*$/.test(v);
+
+async function loadKnownSchools() {
+  try {
+    const snap = await getDocs(collection(db, "teachers"));
+    const acc = { "حكومية": new Map(), "خاصة": new Map() };
+    snap.forEach((d) => {
+      const r = d.data() || {};
+      const t = r["نوع المدرسة"];
+      const name = String(r["المدرسة"] || "").trim();
+      if (!acc[t] || !name) return;
+      const k = schoolKey(name);
+      if (!k) return;
+      const m = acc[t].get(k) || new Map();
+      m.set(name, (m.get(name) || 0) + 1);
+      acc[t].set(k, m);
+    });
+    for (const t of Object.keys(acc)) {
+      const out = new Map();
+      for (const [k, variants] of acc[t]) {
+        out.set(k, [...variants.entries()].sort((a, b) =>
+          (hasRange(b[0]) - hasRange(a[0])) || (b[1] - a[1]) || (b[0].length - a[0].length)
+        )[0][0]);
+      }
+      KNOWN_SCHOOLS[t] = out;
+    }
+    refreshSchoolList();
+  } catch (e) { console.warn("[schools] تعذّر تحميل المدارس المعروفة:", e); }
+}
+
+/* اقتراحات الكتابة: يرى المعلّم المدارس المسجَّلة فيختار الصيغة
+   الصحيحة بدل أن يكتبها من رأسه. */
+function refreshSchoolList() {
+  const dl = document.getElementById("schools-list");
+  if (!dl) return;
+  const names = [...(KNOWN_SCHOOLS[currentType] || new Map()).values()]
+    .sort((a, b) => a.localeCompare(b, "ar"));
+  dl.innerHTML = names.map((n) => `<option value="${esc(n)}"></option>`).join("");
+}
+
 /* اسم المدرسة بصيغة موحّدة: «سعيد بن ناصر الكندي (5-8)».
    كان الحقل نصّاً حرّاً فكتبه كلٌّ بطريقته — بكلمة «مدرسة» وبدونها،
    والنطاق بأقواس أو بلا، و«من 5-12» و«6-9» و«5_9». تُزال بادئة
@@ -783,6 +841,16 @@ function cleanSchool(raw) {
   return { ok: true, value: s };
 }
 
+/* بعد توحيد الشكل، يُصحَّح الاسم إلى المرجع المسجَّل لنفس المدرسة
+   إن وُجد — فمن كتب «الحارث بن خالد» يُحفظ له «الحارث بن خالد (6-9)»
+   كما سجّلها أوّل من أدخلها كاملة. */
+function canonSchool(raw, type) {
+  const res = cleanSchool(raw);
+  if (!res.ok || !res.value) return res;
+  const canon = (KNOWN_SCHOOLS[type] || new Map()).get(schoolKey(res.value));
+  return canon ? { ok: true, value: canon } : res;
+}
+
 const CLEANERS = {
   teacherPhone_gov:     (v) => cleanPhone(v, true),
   teacherPhone_private: (v) => cleanPhone(v, true),
@@ -795,8 +863,8 @@ const CLEANERS = {
   financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية'),
   classesTaught_gov:     cleanGrades,
   classesTaught_private: cleanGrades,
-  schoolName_gov:        cleanSchool,
-  schoolName_private:    cleanSchool
+  schoolName_gov:        (v) => canonSchool(v, "حكومية"),
+  schoolName_private:    (v) => canonSchool(v, "خاصة")
 };
 
 /* يُطبَّق عند مغادرة الحقل لا مع كل حرف، لئلّا يُقاطَع من يكتب */
@@ -835,7 +903,8 @@ function renderField(f) {
       f.im  ? `inputmode="${f.im}"` : '',
       f.min != null ? `min="${f.min}"` : '',
       f.max != null ? `max="${f.max}"` : '',
-      `autocomplete="${f.ac || 'off'}"`
+      `autocomplete="${f.ac || 'off'}"`,
+      f.list ? `list="${f.list}"` : ''
     ].filter(Boolean).join(' ');
     control = `<input id="${f.id}" name="${esc(f.name)}" class="${cls}" ${attrs} aria-describedby="${desc}"${req}>`;
   }
@@ -995,8 +1064,12 @@ function writeDraft() {
 let saveTimer;
 const scheduleSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(writeDraft, 400); };
 
+let currentType = null;   /* النوع الجاري — تُبنى عليه اقتراحات المدارس */
+
 function renderForm(type) {
+  currentType = type;
   host.innerHTML = (type === 'حكومية' ? GOV : PRIVATE).map(renderSection).join('');
+  refreshSchoolList();
   host.hidden = false;
   actions.hidden = false;
 }
@@ -1034,6 +1107,10 @@ function restoreDraft() {
 /* ==================================================================== *
  *  الأحداث
  * ==================================================================== */
+/* تُحمَّل المدارس المسجَّلة مرّة واحدة عند الإقلاع، ولا يُعطَّل شيء
+   إن تعذّرت: الاستمارة تعمل والاسم يُحفظ كما وحَّدته cleanSchool. */
+loadKnownSchools();
+
 form.addEventListener('change', (e) => {
   if (e.target.name === 'نوع المدرسة') {
     renderForm(e.target.value);
