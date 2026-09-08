@@ -250,6 +250,7 @@ td.gap{width:1%;text-align:center}
       <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
       <button type="button" class="btn btn--solid" id="add">+ إضافة معلّم</button>
       <button type="button" class="btn btn--danger" id="del-all">حذف الكل</button>
+      <button type="button" class="btn" id="chg-code" hidden>تغيير الرقم السري</button>
     </div>
 
     <p class="dead" id="undo" hidden>
@@ -303,6 +304,34 @@ td.gap{width:1%;text-align:center}
 <!-- ================================================================= -->
 <!--  تأكيد الحذف                                                       -->
 <!-- ================================================================= -->
+<div class="overlay" id="chg-ov" hidden>
+  <div class="modal modal--sm" role="dialog" aria-modal="true" aria-labelledby="chg-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="chg-title">تغيير الرقم السري</h2>
+      <p class="modal__sub" id="chg-sub"></p>
+    </div>
+    <div class="modal__body">
+      <label style="display:block;font-size:13px;margin:0 0 4px" for="chg-old">الرقم الحالي</label>
+      <input class="control" id="chg-old" type="password" autocomplete="current-password" style="width:100%;margin-bottom:10px">
+      <label style="display:block;font-size:13px;margin:0 0 4px" for="chg-new">الرقم الجديد</label>
+      <input class="control" id="chg-new" type="password" autocomplete="new-password" style="width:100%;margin-bottom:10px">
+      <label style="display:block;font-size:13px;margin:0 0 4px" for="chg-new2">تأكيد الرقم الجديد</label>
+      <input class="control" id="chg-new2" type="password" autocomplete="new-password" style="width:100%">
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-2)">
+        يُحفظ الرقم بصمةً لا نصّاً، ويسري فوراً على كل الأجهزة. احفظه في مكان
+        آمن — لا توجد وسيلة لاستعادته إن نسيته.
+      </p>
+    </div>
+    <div class="modal__foot">
+      <span class="modal__msg" id="chg-msg"></span>
+      <span class="modal__acts">
+        <button type="button" class="btn" id="chg-cancel">إلغاء</button>
+        <button type="button" class="btn btn--solid" id="chg-ok">حفظ</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="del-all-ov" hidden>
   <div class="modal modal--sm" role="alertdialog" aria-modal="true" aria-labelledby="del-all-title">
     <div class="modal__head">
@@ -360,7 +389,7 @@ td.gap{width:1%;text-align:center}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
+import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
          serverTimestamp, deleteField }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { buildWorkbook } from './xlsx-export.js';
@@ -409,6 +438,23 @@ const SUPERVISORS = [
     hash: '345ac74cea2a95b2467a8a79520b808e3e7d616198ff0f900681624352b0706f' }
 ];
 const ADMIN_HASH = '8d1d894f28ad2a5f8ecc4ad8230dfcfd5b2ee8e71ac3634ec89f40de605ca3a1';
+
+/* رموز محدّثة يغيّرها المشرفون بأنفسهم. تُخزَّن بصمةً في مجموعة
+   supervisor_codes (المعرّف = id المشرف) وتَجُبّ البصمة المكتوبة في
+   هذا الملف. لا يُخزَّن الرمز نصّاً في أي موضع. */
+let CODE_OVERRIDES = {};
+
+async function loadCodeOverrides() {
+  try {
+    const snap = await getDocs(collection(db, "supervisor_codes"));
+    const m = {};
+    snap.forEach((d) => { const v = d.data(); if (v && v.hash) m[d.id] = v.hash; });
+    CODE_OVERRIDES = m;
+  } catch (err) { console.warn("[codes] تعذّر تحميل الرموز المحدّثة:", err); }
+}
+
+const effHash = (sup) => CODE_OVERRIDES[sup.id] || sup.hash;
+const supByName = (n) => SUPERVISORS.find((s) => s.name === n) || null;
 /* === SUPERVISORS:END === */
 
 const SESSION_KEY = 'tdc-scope';
@@ -429,6 +475,7 @@ function unlock() {
   gate.hidden = true;
   app.hidden = false;
   el('scope').textContent = scope ? ('معلّمو ' + scope) : 'كل المشرفين';
+  { const b = el('chg-code'); if (b) b.hidden = !supByName(scope); }
   el('sup-wrap').hidden = !!scope;
   load();
 }
@@ -444,7 +491,8 @@ document.getElementById('gate-form').addEventListener('submit', async (e) => {
     err.textContent = 'تعذّر التحقّق في هذا المتصفّح.';
     return;
   }
-  const who = SUPERVISORS.find((s) => s.hash === h);
+  await loadCodeOverrides();
+  const who = SUPERVISORS.find((s) => effHash(s) === h);
   if (!who && h !== ADMIN_HASH) {
     err.textContent = 'رمز غير صحيح.';
     input.value = '';
@@ -926,6 +974,57 @@ async function undoDeleteAll() {
   await load();
 }
 
+/* ── تغيير الرقم السري ──
+   متاح للمشرف المسجَّل باسمه فقط؛ المدير يدخل برمز عام بلا هوية مفردة
+   فلا يملك رمزاً يخصّه هنا. يُطلب الرقم الحالي قبل أي تغيير. */
+function openChangeCode() {
+  const me = supByName(scope);
+  if (!me) return;
+  el("chg-sub").textContent = me.name;
+  el("chg-old").value = ""; el("chg-new").value = ""; el("chg-new2").value = "";
+  el("chg-msg").textContent = "";
+  el("chg-ov").hidden = false;
+  el("chg-old").focus();
+}
+
+function closeChangeCode() { el("chg-ov").hidden = true; }
+
+async function saveNewCode() {
+  const me = supByName(scope);
+  if (!me) return;
+  const msg = el("chg-msg");
+  const oldV = el("chg-old").value.trim();
+  const newV = el("chg-new").value.trim();
+  const new2 = el("chg-new2").value.trim();
+
+  if (!oldV || !newV) { msg.textContent = "أكمل الحقول."; return; }
+  if (newV.length < 4) { msg.textContent = "الرقم الجديد قصير — أربعة محارف فأكثر."; return; }
+  if (newV !== new2) { msg.textContent = "الرقم الجديد وتأكيده غير متطابقين."; return; }
+  if (newV === oldV) { msg.textContent = "الرقم الجديد مطابق للحالي."; return; }
+
+  const btn = el("chg-ok");
+  btn.disabled = true; btn.textContent = "جارٍ الحفظ…";
+  try {
+    await loadCodeOverrides();          /* أحدث بصمة قبل التحقّق */
+    const oldH = await sha256(oldV);
+    if (oldH !== effHash(me)) { msg.textContent = "الرقم الحالي غير صحيح."; return; }
+    const newH = await sha256(newV);
+    await setDoc(doc(db, "supervisor_codes", me.id),
+                 { hash: newH, updatedAt: serverTimestamp() });
+    CODE_OVERRIDES[me.id] = newH;
+    closeChangeCode();
+    el("undo-text").textContent = "تغيّر رقمك السري. استخدمه في الدخول القادم.";
+    el("undo").hidden = false;
+    el("undo-btn").hidden = true;
+    setTimeout(() => { el("undo").hidden = true; el("undo-btn").hidden = false; }, 8000);
+  } catch (err) {
+    console.error("[code] تعذّر الحفظ:", err);
+    msg.textContent = "تعذّر الحفظ. تحقّق من الاتصال ثمّ أعد المحاولة.";
+  } finally {
+    btn.disabled = false; btn.textContent = "حفظ";
+  }
+}
+
 function askDelete(id) {
   const r = byId(id);
   if (!mayTouch(r)) return;
@@ -1013,6 +1112,9 @@ el('del-cancel').addEventListener('click', closeDelete);
 el('del-ok').addEventListener('click', doDelete);
 el('undo-btn').addEventListener('click', () => bulkDeleted ? undoDeleteAll() : undoDelete());
 el('del-all').addEventListener('click', askDeleteAll);
+el('chg-code').addEventListener('click', openChangeCode);
+el('chg-cancel').addEventListener('click', closeChangeCode);
+el('chg-ok').addEventListener('click', saveNewCode);
 el('del-all-cancel').addEventListener('click', closeDeleteAll);
 el('del-all-ok').addEventListener('click', doDeleteAll);
 el('del-all-confirm').addEventListener('input', (e) => {
