@@ -233,6 +233,7 @@ td.gap{width:1%;text-align:center}
         <button type="button" class="btn" id="reload" title="إعادة التحميل">تحديث</button>
         <button type="button" class="btn" id="print">طباعة</button>
         <button type="button" class="btn btn--solid" id="export">تصدير Excel</button>
+        <button type="button" class="btn" id="logout" title="إنهاء الجلسة">خروج</button>
       </div>
     </div>
   </header>
@@ -470,6 +471,23 @@ async function sha256(text) {
 
 const gate = document.getElementById('gate');
 const app  = document.getElementById('app');
+
+/* إنهاء الجلسة: تُمحى هوية المشرف من هذا التبويب ويُعاد قفل البوّابة.
+   البيانات المحمّلة تُفرَغ من الذاكرة كي لا تبقى معروضة خلف البوّابة. */
+function logout() {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+  scope = null;
+  ALL = [];
+  lastDeleted = null;
+  bulkDeleted = null;
+  el("undo").hidden = true;
+  app.hidden = true;
+  gate.hidden = false;
+  const inp = document.getElementById("code");
+  if (inp) { inp.value = ""; inp.focus(); }
+  const err = document.getElementById("gate-err");
+  if (err) err.textContent = "";
+}
 
 function unlock() {
   gate.hidden = true;
@@ -1112,6 +1130,7 @@ el('del-cancel').addEventListener('click', closeDelete);
 el('del-ok').addEventListener('click', doDelete);
 el('undo-btn').addEventListener('click', () => bulkDeleted ? undoDeleteAll() : undoDelete());
 el('del-all').addEventListener('click', askDeleteAll);
+el('logout').addEventListener('click', logout);
 el('chg-code').addEventListener('click', openChangeCode);
 el('chg-cancel').addEventListener('click', closeChangeCode);
 el('chg-ok').addEventListener('click', saveNewCode);
