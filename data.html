@@ -93,6 +93,7 @@ select.control{cursor:pointer;padding-left:32px;
 .stat__l{display:block;margin-top:3px;font-size:12px;color:var(--ink-3)}
 .stat__sub{font-size:12.5px;font-weight:500;color:var(--ink-3);margin-right:5px}
 .stat__note{color:#7a5c00;font-weight:500}
+.iconbtn--wa{color:#128c7e}
 td.pick,th.pick{width:34px;text-align:center;padding:0 4px}
 td.pick input,th.pick input{width:15px;height:15px;cursor:pointer;accent-color:var(--brand)}
 .bulkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -582,9 +583,9 @@ const COLS = {
              'سنة التعيين', 'الدرجة المالية', 'عدد الحصص', 'الفصول التي تدرسها',
              'السكن الحالي', 'العنوان الدائم', 'اسم مدير المدرسة', 'هاتف مدير المدرسة'],
   'خاصة':   [REF, 'المشرف', 'الولاية', 'المدرسة', 'موقع المدرسة', 'عدد معلمي الرياضة', 'الصفوف', 'المنهاج', 'التقويم', 'اسم المعلم',
-             'الجنسية', 'الحالة الاجتماعية', 'الهاتف', 'المؤهل', 'التخصص', 'عدد الحصص',
+             'الجنسية', 'الحالة الاجتماعية', 'الهاتف', 'المؤهل', 'الجامعة', 'التخصص', 'عدد الحصص',
              'الصفوف التي يدرسها', 'اللغة التي يتم تدريس بها المادة', 'الموافقة على التعيين',
-             'رياضة (11)', 'رياضة (12)', 'مدرجة', 'اسم مدير المدرسة', 'جنسية مدير المدرسة', 'هاتف مدير المدرسة',
+             'رياضة (11)', 'رياضة (12)', 'مدرجة', 'كفالة المدرسة', 'اسم مدير المدرسة', 'جنسية مدير المدرسة', 'هاتف مدير المدرسة',
              'هاتف آخر للمدرسة']
 };
 
@@ -880,6 +881,7 @@ const OPTIONS = {
   'التقويم': ['تقويم حكومي', 'تقويم خاص', 'تقويم حكومي + خاص'],
   'الموافقة على التعيين': ['توجد موافقة', 'لا توجد', 'قيد الإجراءات'],
   'مدرجة': ['نعم', 'لا يوجد'],
+  'كفالة المدرسة': ['نعم', 'لا'],
   'رياضة (11)': ['نعم', 'لا يوجد'],
   'رياضة (12)': ['نعم', 'لا يوجد']
 };
@@ -904,10 +906,76 @@ function gapCell(r) {
        + gaps.length + '</span></td>';
 }
 
+/* ── تصدير بيانات معلّم إلى واتساب ──
+   ترتيب الحقول وعناوينها كما طلبها المشرف، لا كترتيب الجدول. تُفتح
+   نافذة واتساب بالنصّ جاهزاً ولا يُرسَل شيء: الإرسال بيد المستخدم. */
+const WA_PRIVATE = [
+  ["المدرسة", "المدرسة"],
+  ["الصفوف", "الصفوف"],
+  ["عدد المعلمين بالمدرسة", "عدد معلمي الرياضة"],
+  ["الاسم الكامل", "اسم المعلم"],
+  ["عدد الحصص", "عدد الحصص"],
+  ["الصفوف التي تدرسها (صفوف فقط بدون شعب)", "الصفوف التي يدرسها"],
+  ["التخصص", "التخصص"],
+  ["الهاتف", "الهاتف"],
+  ["الجنسية", "الجنسية"],
+  ["المؤهل", "المؤهل"],
+  ["الجامعة", "الجامعة", "بلا رقم"],
+  ["الحالة الاجتماعية", "الحالة الاجتماعية"],
+  ["لغة التدريس", "اللغة التي يتم تدريس بها المادة"],
+  ["اسم مدير المدرسة", "اسم مدير المدرسة"],
+  ["رقم هاتفه", "هاتف مدير المدرسة"],
+  ["جنسية المدير", "جنسية مدير المدرسة"],
+  ["المنهاج", "المنهاج"],
+  ["التقويم", "التقويم"],
+  ["هل يوجد اختيار للمادة لصف (11)", "رياضة (11)"],
+  ["هل يوجد اختيار للمادة للصف (12)", "رياضة (12)"],
+  ["هل المعلم على كفالة المدرسة", "كفالة المدرسة"],
+  ["موقع المدرسة", "موقع المدرسة"],
+  ["هاتف المدرسة", "هاتف آخر للمدرسة"],
+];
+
+/* الحكومية لا قالب لها من المشرف، فتُبنى من أعمدة الجدول بترتيبها */
+const waRows = (t) => t === "خاصة"
+  ? WA_PRIVATE
+  : COLS[t].filter((c) => c !== REF && c !== "المشرف").map((c) => [c, c]);
+
+const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const toArabicNum = (n) => String(n).replace(/\d/g, (d) => AR_DIGITS[+d]);
+
+function waText(r) {
+  const t = r["نوع المدرسة"];
+  const lines = ["تحديث قاعدة البيانات معلمي *المدارس " + (t === "خاصة" ? "الخاصة" : "الحكومية") + "*:"];
+  let n = 0;
+  for (const [label, key, noNum] of waRows(t)) {
+    const v = r[key] == null ? "" : String(r[key]).trim();
+    lines.push(noNum ? `${label} : ${v}` : `${toArabicNum(++n)}.${label}: ${v}`);
+  }
+  return lines.join("\n");
+}
+
+/* رقم عُماني من ثماني خانات يُسبَق برمز الدولة ليفتح محادثة صاحبه
+   مباشرةً؛ وإن غاب أو كان على غير الصيغة فُتحت واتساب بلا مُرسَل إليه. */
+function waOpen(id) {
+  const r = byId(id);
+  if (!r) return;
+  const text = encodeURIComponent(waText(r));
+  const d = String(r["الهاتف"] || "").replace(/\D/g, "");
+  const to = /^[79]\d{7}$/.test(d) ? "968" + d : (/^968[79]\d{7}$/.test(d) ? d : "");
+  window.open("https://wa.me/" + to + "?text=" + text, "_blank", "noopener");
+}
+
+const ICON_WA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
+  '<path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.2c-.2.7-1.4 1.3-2 1.4' +
+  '-.5 0-1.1.2-3.7-.8-3.1-1.3-5-4.5-5.2-4.7-.1-.2-1.2-1.6-1.2-3s.8-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5' +
+  '.2.6.8 2 .9 2.1.1.2.1.3 0 .5-.1.2-.2.4-.4.6l-.5.5c-.2.2-.3.3-.1.7.2.3.9 1.4 1.8 2.2 1.2 1 2.2 1.4 2.5 1.5' +
+  '.3.2.5.1.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.2.7-.1.3.1 1.7.8 2 1 .3.1.5.2.5.3.1.2.1.7-.1 1.4z"/></svg>';
+
 function actions(r) {
   if (!mayTouch(r)) return '<td class="act"></td>';
   return '<td class="act">' +
     '<button type="button" class="iconbtn" data-edit="' + r.__id + '" title="تعديل" aria-label="تعديل">' + ICON_EDIT + '</button>' +
+    '<button type="button" class="iconbtn iconbtn--wa" data-wa="' + r.__id + '" title="تصدير لواتساب" aria-label="تصدير لواتساب">' + ICON_WA + '</button>' +
     '<button type="button" class="iconbtn iconbtn--danger" data-del="' + r.__id + '" title="حذف" aria-label="حذف">' + ICON_DEL + '</button>' +
     '</td>';
 }
@@ -1282,8 +1350,10 @@ el("bulk-go").addEventListener("click", movePicked);
 el("bulk-clear").addEventListener("click", clearPicked);
 
 el('rows').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-edit], button[data-del]');
+  const b = e.target.closest('button[data-edit], button[data-del], button[data-wa]');
   if (!b) return;
+  const wa = b.getAttribute('data-wa');
+  if (wa) return waOpen(wa);
   const id = b.getAttribute('data-edit');
   if (id) openEdit(id); else askDelete(b.getAttribute('data-del'));
 });
