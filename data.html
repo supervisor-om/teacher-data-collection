@@ -93,6 +93,12 @@ select.control{cursor:pointer;padding-left:32px;
 .stat__l{display:block;margin-top:3px;font-size:12px;color:var(--ink-3)}
 .stat__sub{font-size:12.5px;font-weight:500;color:var(--ink-3);margin-right:5px}
 .stat__note{color:#7a5c00;font-weight:500}
+td.pick,th.pick{width:34px;text-align:center;padding:0 4px}
+td.pick input,th.pick input{width:15px;height:15px;cursor:pointer;accent-color:var(--brand)}
+.bulkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 12px;margin:0 0 10px;background:var(--brand-tint);
+  border:1px solid var(--line-2);border-radius:var(--r);font-size:13px}
+.bulkbar__n{font-weight:600;color:var(--brand)}
 .stat--warn .stat__n{color:#7a5c00}
 .stat--warn{background:#fffdf5;border-color:#eadb9a}
 @media(max-width:560px){
@@ -253,6 +259,15 @@ td.gap{width:1%;text-align:center}
       <button type="button" class="btn btn--solid" id="add">+ إضافة معلّم</button>
       <button type="button" class="btn btn--danger" id="del-all">حذف الكل</button>
       <button type="button" class="btn" id="chg-code" hidden>تغيير الرقم السري</button>
+    </div>
+
+    <div class="bulkbar" id="bulkbar" hidden>
+      <span><span class="bulkbar__n" id="bulk-n">0</span> معلّماً محدَّداً</span>
+      <label for="bulk-sup">نقل إلى المشرف:</label>
+      <select class="control" id="bulk-sup" style="max-width:220px"></select>
+      <button type="button" class="btn btn--solid" id="bulk-go">نقل</button>
+      <button type="button" class="btn" id="bulk-clear">إلغاء التحديد</button>
+      <span id="bulk-msg" style="color:var(--ink-2)"></span>
     </div>
 
     <p class="dead" id="undo" hidden>
@@ -767,12 +782,18 @@ function render() {
   const rows = current();
   const q = norm(el('q').value);
 
-  el('head').innerHTML = '<th></th><th></th><th title="الحقول الناقصة">ناقص</th>' + cols.map((c) =>
+  /* عمود التحديد للمدير وحده: النقل بين المشرفين صلاحيته. */
+  const pickHead = isAdmin()
+    ? '<th class="pick"><input type="checkbox" id="pick-all" title="تحديد الظاهرين"></th>' : '';
+  el('head').innerHTML = pickHead + '<th></th><th></th><th title="الحقول الناقصة">ناقص</th>' + cols.map((c) =>
     `<th data-col="${esc(c)}">${esc(c === REF ? 'المرجع' : c)}` +
     (sortKey === c ? `<span class="dir">${sortDir > 0 ? '▲' : '▼'}</span>` : '') + '</th>').join('');
 
   el('rows').innerHTML = rows.map((r, i) =>
-    '<tr><td class="idx">' + (i + 1) + '</td>' + actions(r) + gapCell(r) + cols.map((c) => {
+    '<tr>' + (isAdmin()
+      ? '<td class="pick"><input type="checkbox" class="pick-one" data-pick="' + r.__id + '"' +
+        (picked.has(r.__id) ? ' checked' : '') + '></td>' : '') +
+    '<td class="idx">' + (i + 1) + '</td>' + actions(r) + gapCell(r) + cols.map((c) => {
       const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '');
       if (!raw) return `<td class="${cls}">—</td>`;
@@ -824,6 +845,7 @@ function render() {
     el('state').className = 'state';
     el('state').textContent = total ? 'لا توجد سجلات مطابقة لهذه التصفية.' : 'لا سجلات لعرضها.';
   }
+  syncBulkBar();
 }
 
 /* ==================================================================== *
@@ -860,6 +882,10 @@ let bulkDeleted = null;  /* نسخ السجلات المحذوفة جماعيا�
 
 const byId = (id) => ALL.find((r) => r.__id === id) || null;
 const mayTouch = (r) => !!r && (!scope || r['المشرف'] === scope);
+/* المدير هو من دخل بالرمز العام فلا نطاق يقيّده. النقل بين المشرفين
+   صلاحيته وحده: المشرف المقيَّد لا يرى غير معلّميه أصلاً. */
+const isAdmin = () => scope === null;
+const picked = new Set();   /* معرّفات السجلات المحدَّدة للنقل */
 
 function gapCell(r) {
   const gaps = missingIn(r);
@@ -981,6 +1007,64 @@ function scopeSummary(n) {
   const q = el("q").value.trim();
   if (q) bits.push("بحث: " + q);
   return "المشمول (" + n + " سجلاً) — " + bits.join(" | ");
+}
+
+/* ── نقل المعلّمين بين المشرفين ──
+   للمدير وحده. تُنقل السجلات المحدَّدة لا الظاهرة كلّها، كي ينقل
+   مدرسةً بعينها أو معلّمين بأعيانهم لا كلّ ما تصفّيه الشاشة. */
+function syncBulkBar() {
+  const bar = el("bulkbar");
+  if (!bar) return;
+  if (!isAdmin()) { bar.hidden = true; picked.clear(); return; }
+  bar.hidden = picked.size === 0;
+  el("bulk-n").textContent = String(picked.size);
+  const sel = el("bulk-sup");
+  if (sel && !sel.options.length) {
+    sel.innerHTML = '<option value="">اختر المشرف…</option>' +
+      SUPERVISORS.map((x) => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("");
+  }
+  const all = el("pick-all");
+  if (all) {
+    const shown = current().map((r) => r.__id);
+    all.checked = shown.length > 0 && shown.every((id) => picked.has(id));
+  }
+}
+
+function clearPicked() { picked.clear(); render(); }
+
+async function movePicked() {
+  const to = el("bulk-sup").value;
+  const msg = el("bulk-msg");
+  if (!to) { msg.textContent = "اختر المشرف المنقول إليه."; return; }
+  const ids = [...picked];
+  const rows = ids.map(byId).filter(Boolean);
+  if (!rows.length) { msg.textContent = "لا سجلات محدَّدة."; return; }
+  const already = rows.filter((r) => r["المشرف"] === to).length;
+  if (!confirm(`نقل ${rows.length - already} معلّماً إلى «${to}»؟`)) return;
+
+  const btn = el("bulk-go");
+  btn.disabled = true;
+  let ok = 0, bad = 0;
+  for (const r of rows) {
+    if (r["المشرف"] === to) { ok++; continue; }
+    btn.textContent = `جارٍ النقل… ${ok + bad + 1}/${rows.length}`;
+    try {
+      await updateDoc(doc(db, "teachers", r.__id),
+                      { "المشرف": to, updatedAt: serverTimestamp() });
+      r["المشرف"] = to;
+      ok++;
+    } catch (err) { console.error("[move] تعذّر النقل:", err); bad++; }
+  }
+  btn.disabled = false;
+  btn.textContent = "نقل";
+  msg.textContent = bad ? `نُقل ${ok} وتعذّر ${bad}` : "";
+  picked.clear();
+  fillSchools();
+  render();
+  el("undo-text").textContent = `نُقل ${ok} معلّماً إلى «${to}»`;
+  el("undo").hidden = false;
+  el("undo-btn").hidden = true;
+  setTimeout(() => { el("undo").hidden = true; el("undo-btn").hidden = false; }, 8000);
 }
 
 function askDeleteAll() {
@@ -1168,6 +1252,25 @@ async function undoDelete() {
 /* ==================================================================== *
  *  الأحداث
  * ==================================================================== */
+/* خانات التحديد: صفٌّ واحد أو الظاهرون جميعاً */
+el("rows").addEventListener("change", (e) => {
+  const id = e.target.dataset && e.target.dataset.pick;
+  if (!id) return;
+  e.target.checked ? picked.add(id) : picked.delete(id);
+  syncBulkBar();
+});
+
+el("head").addEventListener("change", (e) => {
+  if (e.target.id !== "pick-all") return;
+  const shown = current().map((r) => r.__id);
+  e.target.checked ? shown.forEach((x) => picked.add(x))
+                   : shown.forEach((x) => picked.delete(x));
+  render();
+});
+
+el("bulk-go").addEventListener("click", movePicked);
+el("bulk-clear").addEventListener("click", clearPicked);
+
 el('rows').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-edit], button[data-del]');
   if (!b) return;
