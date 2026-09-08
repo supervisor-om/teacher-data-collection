@@ -687,7 +687,7 @@ function current() {
   const sup = scope || el('sup').value;
   let rows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
   if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
-  if (school) rows = rows.filter((r) => r['المدرسة'] === school);
+  if (school) rows = rows.filter((r) => schoolKey(r['المدرسة']) === school);
   if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
   if (q) {
     rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
@@ -705,22 +705,27 @@ function current() {
      الصفوف أوّلاً بالعمود المختار، ثمّ تُجمَّع بالمدرسة على ترتيب أوّل
      ظهور — فتَتبع المجموعاتُ الفرزَ ولا يتفرّق معلّمو مدرسة بينها. */
   const groups = new Map();
-  for (const r of rows) {
-    const k = (r['المدرسة'] || '').trim() || '\u2014';
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(r);
+  for (const r of mine) {
+    const k = schoolKey(r['المدرسة']);
+    if (!k) continue;
+    const g = groups.get(k) || { variants: new Map(), n: 0 };
+    const raw = String(r['المدرسة']).trim();
+    g.variants.set(raw, (g.variants.get(raw) || 0) + 1);
+    g.n++;
+    groups.set(k, g);
   }
-  const out = [];
-  for (const g of groups.values()) for (const r of g) out.push(r);
-  return out;
-}
-
-function fillSchools() {
-  const mine = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
-  const names = [...new Set(mine.map((r) => r['المدرسة']).filter(Boolean))]
-                .sort((a, b) => a.localeCompare(b, 'ar'));
+  /* الاسم المعروض: الصيغة الأكثر تكراراً، وعند التساوي الأقصر —
+     فالأقصر عادةً هي الاسم مجرّداً من نطاق الصفوف وحشوه. */
+  for (const g of groups.values()) {
+    g.label = [...g.variants.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].length - b[0].length)[0][0];
+  }
+  const keepSchool = el('school').value;
+  const opts = [...groups.entries()]
+    .sort((a, b) => a[1].label.localeCompare(b[1].label, 'ar'));
   el('school').innerHTML = '<option value="">كل المدارس</option>' +
-    names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    opts.map(([k, g]) => `<option value="${esc(k)}">${esc(g.label)} (${g.n})</option>`).join('');
+  el('school').value = groups.has(keepSchool) ? keepSchool : '';
 
   /* السجلات السابقة للتقسيم بلا مشرف، فتُجمع تحت بند صريح بدل أن تختفي */
   const sups = [...new Set(mine.map((r) => r['المشرف'] || UNASSIGNED))]
