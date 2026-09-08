@@ -605,6 +605,32 @@ const norm = (s) => String(s == null ? '' : s)
   .replace(/[ً-ْـ]/g, '')
   .toLowerCase().trim();
 
+/* مفتاح المدرسة: يوحّد صيغ كتابة الاسم الواحد كي لا يتضخّم العدّاد.
+   يُسقط بادئة «مدرسة» ونطاق الصفوف بكل صيغه — (5-12) و«من 5-12»
+   و«6-9» — ويوحّد الترقيم والمسافات، فوق تطبيع norm للحروف والأرقام.
+   لا يمسّ ما يميّز مدرسةً عن أخرى: «للبنين» و«للبنات» يبقيان. */
+const schoolKey = (s) => norm(s)
+  .replace(/^مدرسه\s+/, "")
+  .replace(/(?:من\s*)?\(?\s*\d+\s*[-–—]\s*\d+\s*\)?/g, " ")
+  .replace(/[()،,.\-–—/]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+/* عدّ المدارس بالمفتاح لا بالنصّ الخام */
+const countSchools = (rows) =>
+  new Set(rows.map((r) => schoolKey(r["المدرسة"])).filter(Boolean)).size;
+
+/* صيغ الكتابة المختلفة لمدرسة واحدة — تُعرض تلميحاً كي ينتبه المشرف */
+function schoolVariants(rows) {
+  const g = {};
+  for (const r of rows) {
+    const k = schoolKey(r["المدرسة"]);
+    if (!k) continue;
+    (g[k] = g[k] || new Set()).add(String(r["المدرسة"]).trim());
+  }
+  return Object.values(g).filter((v) => v.size > 1).map((v) => [...v]);
+}
+
 /* يُبقي من كل حقل ما يكفي لتمييز صاحبه دون كشفه:
    البريد يُترك نطاقه (moe.om يشترك فيه الجميع فلا يدلّ على أحد) بينما
    يُخفى الاسم قبل @ — والتقنيع الأعمى كان يُبقي «com» من كل بريد فلا يفيد.
@@ -733,16 +759,23 @@ function render() {
     }).join('') + '</tr>').join('');
 
   const total = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r)).length;
-  const schools = new Set(rows.map((r) => (r['المدرسة'] || '').trim()).filter(Boolean)).size;
+  const schools = countSchools(rows);
   const gaps = rows.filter((r) => missingIn(r).length).length;
 
   /* العدّادات تعكس ما هو معروض. حين تحجب تصفيةٌ بعضَ السجلات يُذكر
      الأصل بجانب الرقم، لئلّا يُقرأ الجزء على أنّه الكلّ. */
   const allRows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
-  const allSchools = new Set(allRows.map((r) => (r['المدرسة'] || '').trim()).filter(Boolean)).size;
+  const allSchools = countSchools(allRows);
   const filtered = rows.length !== total;
+  const vars_ = schoolVariants(rows);
+  const varsNote = vars_.length
+    ? `<span class="stat__sub">${vars_.length} باسم مكرّر الصيغة</span>` : '';
   el('s-schools').innerHTML = schools +
-    (filtered && allSchools !== schools ? `<span class="stat__sub">من ${allSchools}</span>` : '');
+    (filtered && allSchools !== schools ? `<span class="stat__sub">من ${allSchools}</span>` : varsNote);
+  el('s-schools').parentElement.title = vars_.length
+    ? 'صيغ مختلفة لنفس المدرسة عُدّت مرة واحدة:\n'
+      + vars_.map((v) => '• ' + v.join('  |  ')).join('\n')
+    : '';
   el('s-teachers').innerHTML = rows.length +
     (filtered ? `<span class="stat__sub">من ${total}</span>` : '');
   el('s-gaps').textContent = gaps;
