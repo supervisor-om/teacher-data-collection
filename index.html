@@ -518,7 +518,8 @@ const PRIVATE = [
     { id:'schoolLocation_private',  name:'موقع المدرسة', col:3, type:'select',
       ph:'اختر الولاية أوّلاً', options:[], dependsOn:'wilayat_private' },
     { id:'teacherCount_private',    name:'عدد معلمي الرياضة', label:'عدد معلمي الرياضة في المدرسة', col:4, type:'number', num:true, im:'numeric', min:1, max:50, ph:'1' },
-    { id:'schoolClasses_private',   name:'الصفوف', col:4, type:'select', ph:'اختر الصفوف', options:OPT.classes, help:'المقصود بالصفوف للمدرسة وليس للمعلم.' },
+    { id:'schoolClasses_private',   name:'الصفوف', col:4, num:true, ph:'مثال: 1-4',
+      help:'صفوف المدرسة لا صفوف المعلّم. أرقام إنجليزية من 1 إلى 12، والمدى بالشرطة.' },
     { id:'curriculumSystem_private',name:'المنهاج', col:4, type:'select', ph:'اختر النظام', options:OPT.curriculum },
     { id:'evaluationSystem_private',name:'التقويم', col:4, type:'select', ph:'اختر النظام', options:OPT.evaluation },
 
@@ -858,6 +859,32 @@ function canonSchool(raw, type) {
   return canon ? { ok: true, value: canon } : res;
 }
 
+/* صفوف المدرسة: مدىً مثل «1-4» أو صفّاً واحداً مثل «4». أرقام
+   إنجليزية وحدها، من 1 إلى 12، وتُكتب بين قوسين بالأصغر أوّلاً —
+   كنطاق الصفوف في اسم المدرسة، فلا تختلف صيغتان لمعنى واحد.
+   ولا تُوسَّع إلى أرقام مفردة: هذا مدى المدرسة لا حصص المعلّم. */
+function cleanClassRange(raw) {
+  /* يُفحص الأصل قبل tidyDigits: هي تحوّل الهندية إلى إنجليزية فلو
+     فُحص بعدها لما ظهرت هندية قطّ، ولقُبلت بلا تنبيه — بخلاف حقل
+     «الصفوف التي يدرسها» الذي يردّها. */
+  const raw_ = String(raw ?? "").trim();
+  if (!raw_) return { ok: true, value: "" };
+  if (/[٠-٩۰-۹]/.test(raw_))
+    return { ok: false, why: "اكتب الأرقام إنجليزية (1 2 3) لا هندية (١ ٢ ٣)." };
+  const s = tidyDigits(raw_);
+  if (/[^0-9\s()،,.:\-–—_]/.test(s))
+    return { ok: false, why: "أرقام الصفوف فقط بلا كلمات. مثال: 1-4" };
+  const nums = (s.match(/\d+/g) || []).map(Number);
+  if (!nums.length)
+    return { ok: false, why: "اكتب صفوف المدرسة. مثال: 1-4" };
+  if (nums.length > 2)
+    return { ok: false, why: "اكتب المدى بطرفيه فقط. مثال: 1-12" };
+  if (nums.some((n) => n < 1 || n > 12))
+    return { ok: false, why: "الصفوف من 1 إلى 12 فقط." };
+  const a = Math.min(...nums), b = Math.max(...nums);
+  return { ok: true, value: a === b ? `(${a})` : `(${a}-${b})` };
+}
+
 const CLEANERS = {
   teacherPhone_gov:     (v) => cleanPhone(v, true),
   teacherPhone_private: (v) => cleanPhone(v, true),
@@ -870,6 +897,7 @@ const CLEANERS = {
   financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية'),
   classesTaught_gov:     cleanGrades,
   classesTaught_private: cleanGrades,
+  schoolClasses_private: cleanClassRange,
   schoolName_gov:        (v) => canonSchool(v, "حكومية"),
   schoolName_private:    (v) => canonSchool(v, "خاصة")
 };
