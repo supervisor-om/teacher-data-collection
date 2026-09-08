@@ -728,14 +728,15 @@ function cleanGrades(raw) {
   if (!s) return { ok: true, value: "" };
   if (/[٠-٩۰-۹]/.test(s))
     return { ok: false, why: "اكتب الأرقام إنجليزية (1 2 3) لا هندية (١ ٢ ٣)." };
-  if (/[^0-9\s،,.:\-]/.test(s))
+  if (/[^0-9\s،,.:\-_]/.test(s))
     return { ok: false, why: "أرقام الصفوف فقط بلا كلمات. مثال: 11،12" };
 
   const nums = [];
   let bad = "";
-  /* الشرطة مدى: «5-10» تعني الصفوف من 5 إلى 10. تُوسَّع أوّلاً ثمّ
+  /* الشرطة مدى: «5-10» تعني الصفوف من 5 إلى 10. والشرطة السفلية
+     مثلها، فهي خطأ لوحة مفاتيح شائع. تُوسَّع أوّلاً ثمّ
      تُلتقط الأرقام المفردة مما تبقّى. */
-  const rest = s.replace(/(\d+)\s*-\s*(\d+)/g, (m, a, b) => {
+  const rest = s.replace(/(\d+)\s*[-_]\s*(\d+)/g, (m, a, b) => {
     const from = Number(a), to = Number(b);
     if (from > to) bad = `المدى «${m.trim()}» مقلوب — اكتب الأصغر أوّلاً.`;
     else for (let n = from; n <= to; n++) nums.push(n);
