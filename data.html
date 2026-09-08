@@ -627,10 +627,13 @@ const norm = (s) => String(s == null ? '' : s)
    لا يمسّ ما يميّز مدرسةً عن أخرى: «للبنين» و«للبنات» يبقيان. */
 const schoolKey = (s) => norm(s)
   .replace(/^مدرسه\s+/, "")
-  .replace(/(?:من\s*)?\(?\s*\d+\s*[-–—]\s*\d+\s*\)?/g, " ")
-  .replace(/[()،,.\-–—/]/g, " ")
+  .replace(/(?:من\s*)?\(?\s*\d+\s*[-–—_]\s*\d+\s*\)?/g, " ")
+  .replace(/[()،,.\-–—_/]/g, " ")
   .replace(/\s+/g, " ")
-  .trim();
+  .trim()
+  /* «بن» و«بنت» كلمتا نسب لا تميّزان مدرسةً عن أخرى، وحذفُ المعلّم
+     إحداهما شائع. تُسقطان بمطابقة الكلمة كاملةً فلا تتأثر «ابن رزيق». */
+  .split(" ").filter((w) => w !== "بن" && w !== "بنت").join(" ");
 
 /* عدّ المدارس بالمفتاح لا بالنصّ الخام */
 const countSchools = (rows) =>
@@ -746,9 +749,15 @@ function fillSchools() {
     g.n++;
     byKey.set(k, g);
   }
+  /* الاسم المعروض: ما ذُكر فيه نطاق الصفوف أوّلاً فهو الأكمل، ثمّ
+     الأكثر تكراراً، ثمّ الأقصر. وهي القاعدة نفسها التي تختار بها
+     الاستمارةُ المرجعَ، فلا يختلف المعروض هنا عمّا يُحفظ هناك. */
+  const hasRange = (v) => /\(\d{1,2}(-\d{1,2})?\)\s*$/.test(v);
   for (const g of byKey.values()) {
     g.label = [...g.variants.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].length - b[0].length)[0][0];
+      .sort((a, b) => (hasRange(b[0]) - hasRange(a[0]))
+                   || (b[1] - a[1])
+                   || (a[0].length - b[0].length))[0][0];
   }
   const keepSchool = el('school').value;
   const schoolOpts = [...byKey.entries()]
