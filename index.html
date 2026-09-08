@@ -501,7 +501,7 @@ const GOV = [
     { id:'financialGrade_gov', name:'الدرجة المالية', col:4, num:true, im:'numeric', help:'أرقام فقط.' },
     { id:'classCount_gov',     name:'عدد الحصص', col:6, type:'select', ph:'اختر عدد الحصص',
       options: range(3, 38).concat(['لم يتم توزيع الجدول بعد']) },
-    { id:'classesTaught_gov',  name:'الفصول التي تدرسها', col:6, ph:'مثال: 12،11', help:'الصفوف وليس الشعب.' }
+    { id:'classesTaught_gov',  name:'الفصول التي تدرسها', col:6, num:true, ph:'مثال: 11،12', help:'الصفوف وليس الشعب. أرقام إنجليزية فقط من 1 إلى 12.' }
   ]},
   { title: 'السكن', fields: [
     { id:'currentAddress_gov',  name:'السكن الحالي', col:6, ph:'الولاية أو المنطقة', help:'السكن القريب من جهة عملك.' },
@@ -536,7 +536,7 @@ const PRIVATE = [
   ]},
   { title: 'بيانات التدريس', fields: [
     { id:'classCount_private',      name:'عدد الحصص', col:4, type:'select', ph:'اختر عدد الحصص', options:range(1,32), optional:true },
-    { id:'classesTaught_private',   name:'الصفوف التي يدرسها', col:4, help:'مثال: (6،5،3،1) بالتسلسل.' },
+    { id:'classesTaught_private',   name:'الصفوف التي يدرسها', col:4, num:true, ph:'مثال: 1،3،5،6', help:'أرقام إنجليزية فقط من 1 إلى 12.' },
     { id:'teachingLanguage_private',name:'اللغة التي يتم تدريس بها المادة', label:'لغة تدريس المادة', col:4, type:'select', ph:'اختر اللغة', options:OPT.language }
   ]},
   { title: 'بيانات إضافية', fields: [
@@ -719,6 +719,26 @@ function cleanCount(v, max, label) {
 }
 
 /* الحقل ← دالّة تنظيفه وتحقّقه */
+/* الفصول/الصفوف التي يدرسها: أرقام إنجليزية فقط بين 1 و12.
+   الحقل كان نصّاً حرّاً فكتبه كلٌّ بطريقته: «8،6» و«السابع والتاسع»
+   و«5.8.10.12» و«6:7:9:11» و«٥-١٠». يُرفض النصّ والأرقام الهندية
+   صراحةً برسالة تشرح الصواب، وتُوحَّد الفواصل ويُرتَّب الناتج. */
+function cleanGrades(raw) {
+  const s = String(raw).trim();
+  if (!s) return { ok: true, value: "" };
+  if (/[٠-٩۰-۹]/.test(s))
+    return { ok: false, why: "اكتب الأرقام إنجليزية (1 2 3) لا هندية (١ ٢ ٣)." };
+  if (/[^0-9\s،,.:\-]/.test(s))
+    return { ok: false, why: "أرقام الصفوف فقط بلا كلمات. مثال: 11،12" };
+  const found = (s.match(/\d+/g) || []).map(Number);
+  if (!found.length)
+    return { ok: false, why: "اكتب أرقام الصفوف. مثال: 11،12" };
+  if (found.some((n) => n < 1 || n > 12))
+    return { ok: false, why: "الصفوف من 1 إلى 12 فقط." };
+  const nums = [...new Set(found)].sort((x, y) => x - y);
+  return { ok: true, value: nums.join("،") };
+}
+
 const CLEANERS = {
   teacherPhone_gov:     (v) => cleanPhone(v, true),
   teacherPhone_private: (v) => cleanPhone(v, true),
@@ -728,7 +748,9 @@ const CLEANERS = {
   civilId_gov:          cleanCivilId,
   teacherCount_gov:     (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
   teacherCount_private: (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
-  financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية')
+  financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية'),
+  classesTaught_gov:     cleanGrades,
+  classesTaught_private: cleanGrades
 };
 
 /* يُطبَّق عند مغادرة الحقل لا مع كل حرف، لئلّا يُقاطَع من يكتب */
