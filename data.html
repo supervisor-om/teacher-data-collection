@@ -92,6 +92,7 @@ select.control{cursor:pointer;padding-left:32px;
   font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat__l{display:block;margin-top:3px;font-size:12px;color:var(--ink-3)}
 .stat__sub{font-size:12.5px;font-weight:500;color:var(--ink-3);margin-right:5px}
+.stat__note{color:#7a5c00;font-weight:500}
 .stat--warn .stat__n{color:#7a5c00}
 .stat--warn{background:#fffdf5;border-color:#eadb9a}
 @media(max-width:560px){
@@ -261,7 +262,7 @@ td.gap{width:1%;text-align:center}
 
     <div class="stats" id="stats">
       <div class="stat"><span class="stat__n" id="s-schools">—</span>
-        <span class="stat__l">مدرسة أرسلت بياناتها</span></div>
+        <span class="stat__l">مدرسة أرسلت بياناتها<span id="s-schools-note"></span></span></div>
       <div class="stat"><span class="stat__n" id="s-teachers">—</span>
         <span class="stat__l">معلّماً مسجَّلاً</span></div>
       <div class="stat stat--warn"><span class="stat__n" id="s-gaps">—</span>
@@ -768,10 +769,15 @@ function render() {
   const allSchools = countSchools(allRows);
   const filtered = rows.length !== total;
   const vars_ = schoolVariants(rows);
-  const varsNote = vars_.length
-    ? `<span class="stat__sub">${vars_.length} باسم مكرّر الصيغة</span>` : '';
   el('s-schools').innerHTML = schools +
-    (filtered && allSchools !== schools ? `<span class="stat__sub">من ${allSchools}</span>` : varsNote);
+    (filtered && allSchools !== schools ? `<span class="stat__sub">من ${allSchools}</span>` : '');
+  /* الملاحظة في سطر العنوان لا مع الرقم: بدؤها برقم بجوار رقم
+     العدّاد يجعلهما يُقرآن رقماً واحداً (5 ثمّ 2 تبدو 52). */
+  const note = el('s-schools-note');
+  if (note) {
+    note.className = vars_.length ? 'stat__note' : '';
+    note.textContent = vars_.length ? ` — وحّدنا ${vars_.length} اسماً مكرّر الصيغة` : '';
+  }
   el('s-schools').parentElement.title = vars_.length
     ? 'صيغ مختلفة لنفس المدرسة عُدّت مرة واحدة:\n'
       + vars_.map((v) => '• ' + v.join('  |  ')).join('\n')
