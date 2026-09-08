@@ -979,15 +979,15 @@ function waText(r) {
   return lines.join("\n");
 }
 
-/* رقم عُماني من ثماني خانات يُسبَق برمز الدولة ليفتح محادثة صاحبه
-   مباشرةً؛ وإن غاب أو كان على غير الصيغة فُتحت واتساب بلا مُرسَل إليه. */
+/* المستلِم واحد دائماً: المشرف الأوّل. الرسالة تقرير عن المعلّم لا
+   رسالة إليه، فلا تُرسَل إلى رقمه هو. */
+const WA_TO = "96899271777";
+
 function waOpen(id) {
   const r = byId(id);
   if (!r) return;
   const text = encodeURIComponent(waText(r));
-  const d = String(r["الهاتف"] || "").replace(/\D/g, "");
-  const to = /^[79]\d{7}$/.test(d) ? "968" + d : (/^968[79]\d{7}$/.test(d) ? d : "");
-  window.open("https://wa.me/" + to + "?text=" + text, "_blank", "noopener");
+  window.open("https://wa.me/" + WA_TO + "?text=" + text, "_blank", "noopener");
 }
 
 const ICON_WA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
