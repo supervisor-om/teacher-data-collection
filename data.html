@@ -249,6 +249,7 @@ td.gap{width:1%;text-align:center}
       <button type="button" class="btn" id="only-gaps" aria-pressed="false">الناقصة فقط</button>
       <button type="button" class="btn" id="reveal" aria-pressed="false">إظهار الحقول الحسّاسة</button>
       <button type="button" class="btn btn--solid" id="add">+ إضافة معلّم</button>
+      <button type="button" class="btn btn--danger" id="del-all">حذف الكل</button>
     </div>
 
     <p class="dead" id="undo" hidden>
@@ -302,6 +303,33 @@ td.gap{width:1%;text-align:center}
 <!-- ================================================================= -->
 <!--  تأكيد الحذف                                                       -->
 <!-- ================================================================= -->
+<div class="overlay" id="del-all-ov" hidden>
+  <div class="modal modal--sm" role="alertdialog" aria-modal="true" aria-labelledby="del-all-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="del-all-title">حذف كل السجلات الظاهرة</h2>
+      <p class="modal__sub" id="del-all-sub"></p>
+    </div>
+    <div class="modal__body">
+      <p style="margin:0 0 10px;font-size:13.5px;color:var(--ink-2)" id="del-all-scope"></p>
+      <p style="margin:0 0 10px;font-size:13.5px;color:var(--ink-2)">
+        تُحذف هذه السجلات من قاعدة البيانات نهائياً. يمكن التراجع مباشرةً بعد الحذف
+        ما دمت في هذه الصفحة؛ فإن أغلقتها تعذّر استرجاعها.
+      </p>
+      <label style="display:block;font-size:13px;margin-bottom:6px" for="del-all-confirm">
+        للتأكيد اكتب عدد السجلات: <strong id="del-all-n">0</strong>
+      </label>
+      <input class="control" id="del-all-confirm" inputmode="numeric" autocomplete="off" style="width:100%">
+    </div>
+    <div class="modal__foot">
+      <span class="modal__msg" id="del-all-msg"></span>
+      <span class="modal__acts">
+        <button type="button" class="btn" id="del-all-cancel">إلغاء</button>
+        <button type="button" class="btn btn--danger" id="del-all-ok" disabled>حذف نهائي</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="del-ov" hidden>
   <div class="modal modal--sm" role="alertdialog" aria-modal="true" aria-labelledby="del-title">
     <div class="modal__head">
@@ -702,6 +730,7 @@ let editing = null;    /* السجلّ المفتوح في نافذة التعد
 let creating = false;  /* هل النافذة لإضافة سجلّ جديد؟ */
 let deleting = null;   /* السجلّ المعروض في تأكيد الحذف */
 let lastDeleted = null;
+let bulkDeleted = null;  /* نسخ السجلات المحذوفة جماعياً، للتراجع */
 
 const byId = (id) => ALL.find((r) => r.__id === id) || null;
 const mayTouch = (r) => !!r && (!scope || r['المشرف'] === scope);
@@ -811,6 +840,92 @@ async function saveEdit() {
   }
 }
 
+/* حذف كل السجلات الظاهرة حالياً — أي ما تعرضه current() بعد كل المرشّحات،
+   ومقصوراً على ما يملك المشرف صلاحية لمسه. لا يمسّ سجلات خارج نطاقه. */
+function deletableNow() {
+  return current().filter(mayTouch);
+}
+
+function scopeSummary(n) {
+  const bits = ["نوع المدرسة: " + type];
+  const sup = scope || el("sup").value;
+  if (sup) bits.push("المشرف: " + sup);
+  if (el("school").value) bits.push("المدرسة: " + el("school").value);
+  if (onlyGaps) bits.push("الناقصة فقط");
+  const q = el("q").value.trim();
+  if (q) bits.push("بحث: " + q);
+  return "المشمول (" + n + " سجلاً) — " + bits.join(" | ");
+}
+
+function askDeleteAll() {
+  const rows = deletableNow();
+  if (!rows.length) { alert("لا توجد سجلات ظاهرة لحذفها."); return; }
+  el("del-all-sub").textContent = "سيُحذف " + rows.length + " سجلاً نهائياً";
+  el("del-all-scope").textContent = scopeSummary(rows.length);
+  el("del-all-n").textContent = String(rows.length);
+  el("del-all-confirm").value = "";
+  el("del-all-ok").disabled = true;
+  el("del-all-msg").textContent = "";
+  el("del-all-ov").hidden = false;
+  el("del-all-confirm").focus();
+}
+
+function closeDeleteAll() { el("del-all-ov").hidden = true; }
+
+async function doDeleteAll() {
+  const rows = deletableNow();
+  /* يُعاد الحساب لحظة التنفيذ: لو تغيّر المعروض بعد فتح النافذة نتوقّف */
+  if (String(rows.length) !== el("del-all-confirm").value.trim()) {
+    el("del-all-msg").textContent = "تغيّر عدد السجلات المعروضة. أغلق النافذة وأعد المحاولة.";
+    return;
+  }
+  const btn = el("del-all-ok");
+  btn.disabled = true;
+  const copies = [];
+  let done = 0, failed = 0;
+  for (const r of rows) {
+    btn.textContent = "جارٍ الحذف… " + (done + failed + 1) + "/" + rows.length;
+    try {
+      await deleteDoc(doc(db, "teachers", r.__id));
+      const copy = {};
+      for (const k of Object.keys(r)) if (k !== "__id" && k !== REF) copy[k] = r[k];
+      copies.push(copy);
+      ALL = ALL.filter((x) => x !== r);
+      done++;
+    } catch (err) { console.error("[deleteAll] تعذّر حذف سجلّ:", err); failed++; }
+  }
+  bulkDeleted = copies.length ? copies : null;
+  lastDeleted = null;
+  closeDeleteAll();
+  el("undo-text").textContent = "حُذف " + done + " سجلاً" + (failed ? " — وتعذّر حذف " + failed : "");
+  el("undo").hidden = !copies.length;
+  btn.disabled = false;
+  btn.textContent = "حذف نهائي";
+  fillSchools();
+  render();
+}
+
+async function undoDeleteAll() {
+  if (!bulkDeleted) return;
+  const btn = el("undo-btn");
+  btn.disabled = true;
+  let ok = 0;
+  for (const c of bulkDeleted) {
+    btn.textContent = "جارٍ الاسترجاع… " + (ok + 1) + "/" + bulkDeleted.length;
+    try {
+      await addDoc(collection(db, "teachers"), Object.assign({}, c, { restoredAt: serverTimestamp() }));
+      ok++;
+    } catch (err) { console.error("[undoAll] تعذّر الاسترجاع:", err); }
+  }
+  const missed = bulkDeleted.length - ok;
+  bulkDeleted = null;
+  el("undo").hidden = true;
+  btn.disabled = false;
+  btn.textContent = "تراجع عن الحذف";
+  if (missed) alert("تعذّر استرجاع " + missed + " سجلاً.");
+  await load();
+}
+
 function askDelete(id) {
   const r = byId(id);
   if (!mayTouch(r)) return;
@@ -835,6 +950,7 @@ async function doDelete() {
     const copy = {};
     for (const k of Object.keys(gone)) if (k !== '__id' && k !== REF) copy[k] = gone[k];
     lastDeleted = copy;
+    bulkDeleted = null;   /* وإلّا وجّه زر التراجع إلى الاسترجاع الجماعي خطأً */
     ALL = ALL.filter((r) => r !== gone);
     closeDelete();
     el('undo-text').textContent = 'حُذف سجلّ: ' + (copy['اسم المعلم'] || 'بلا اسم');
@@ -860,6 +976,7 @@ async function undoDelete() {
     await addDoc(collection(db, 'teachers'),
                  Object.assign({}, lastDeleted, { restoredAt: serverTimestamp() }));
     lastDeleted = null;
+    bulkDeleted = null;
     el('undo').hidden = true;
     await load();
   } catch (err) {
@@ -894,7 +1011,13 @@ el('edit-cancel').addEventListener('click', closeEdit);
 el('edit-save').addEventListener('click', saveEdit);
 el('del-cancel').addEventListener('click', closeDelete);
 el('del-ok').addEventListener('click', doDelete);
-el('undo-btn').addEventListener('click', undoDelete);
+el('undo-btn').addEventListener('click', () => bulkDeleted ? undoDeleteAll() : undoDelete());
+el('del-all').addEventListener('click', askDeleteAll);
+el('del-all-cancel').addEventListener('click', closeDeleteAll);
+el('del-all-ok').addEventListener('click', doDeleteAll);
+el('del-all-confirm').addEventListener('input', (e) => {
+  el('del-all-ok').disabled = e.target.value.trim() !== el('del-all-n').textContent;
+});
 
 el('edit-ov').addEventListener('click', (e) => { if (e.target === el('edit-ov')) closeEdit(); });
 el('del-ov').addEventListener('click', (e) => { if (e.target === el('del-ov')) closeDelete(); });
