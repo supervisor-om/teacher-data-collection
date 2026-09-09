@@ -43,6 +43,33 @@ export const LAYOUT = {
       "X": "509",
       "Y": "523"
     },
+    "sizes": {
+      "A": "16",
+      "B": "14",
+      "C": "16",
+      "D": "18",
+      "E": "14",
+      "F": "14",
+      "G": "14",
+      "H": "16",
+      "I": "14",
+      "J": "16",
+      "K": "14",
+      "L": "14",
+      "M": "14",
+      "N": "14",
+      "O": "14",
+      "P": "14",
+      "Q": "14",
+      "R": "14",
+      "S": "14",
+      "T": "14",
+      "U": "14",
+      "V": "16",
+      "W": "14",
+      "X": "16",
+      "Y": "12"
+    },
     "cols": {
       "A": {
         "k": "الولاية"
@@ -160,6 +187,38 @@ export const LAYOUT = {
       "AB": "60",
       "AC": "69",
       "AD": "62"
+    },
+    "sizes": {
+      "A": "16",
+      "B": "16",
+      "C": "20",
+      "D": "14",
+      "E": "20",
+      "F": "18",
+      "G": "16",
+      "H": "14",
+      "I": "20",
+      "J": "16",
+      "K": "14",
+      "L": "20",
+      "M": "18",
+      "N": "14",
+      "O": "14",
+      "P": "16",
+      "Q": "16",
+      "R": "16",
+      "S": "16",
+      "T": "16",
+      "U": "14",
+      "V": "16",
+      "W": "16",
+      "X": "16",
+      "Y": "16",
+      "Z": "16",
+      "AA": "16",
+      "AB": "16",
+      "AC": "14",
+      "AD": "16"
     },
     "cols": {
       "A": {
@@ -373,6 +432,31 @@ const TRANSFORM = {
   }
 };
 
+/* نصّ الخليّة مقاطعَ حسب نظام الكتابة: العربية ترث خطّ العمود،
+   واللاتينية تُعطى Calibri بحجم العمود نفسه. يُحلّ بذلك المختلط في
+   الخليّة الواحدة — «عزان بن قيس الدولية abq» — ولا يُمسّ الخطّ
+   العربي، إذ ثبت أنّ تغييره عبر سمة الملف يُسيء إلى العربية. */
+const LATIN_RE = /[A-Za-z][A-Za-z0-9 ._@'&/,+-]*[A-Za-z0-9]|[A-Za-z]/g;
+
+function inlineText(val, size) {
+  const s = String(val);
+  if (!/[A-Za-z]/.test(s)) return `<t xml:space="preserve">${esc(s)}</t>`;
+
+  const runs = [];
+  let last = 0;
+  for (const m of s.matchAll(LATIN_RE)) {
+    if (m.index > last) runs.push([s.slice(last, m.index), false]);
+    runs.push([m[0], true]);
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) runs.push([s.slice(last), false]);
+  if (runs.length === 1 && !runs[0][1]) return `<t xml:space="preserve">${esc(s)}</t>`;
+
+  const rpr = `<rPr><sz val="${size}"/><color theme="1"/><rFont val="Calibri"/><family val="2"/></rPr>`;
+  return runs.map(([t, latin]) =>
+    `<r>${latin ? rpr : ''}<t xml:space="preserve">${esc(t)}</t></r>`).join('');
+}
+
 function buildRows(kind, records) {
   const L = LAYOUT[kind];
   const num = new Set(L.numeric);
@@ -395,7 +479,7 @@ function buildRows(kind, records) {
       }
       if (!val) cells.push(`<c r="${ref}"${st}/>`);
       else if (num.has(col) && /^\d{1,4}$/.test(val)) cells.push(`<c r="${ref}"${st}><v>${val}</v></c>`);
-      else cells.push(`<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${esc(val)}</t></is></c>`);
+      else cells.push(`<c r="${ref}"${st} t="inlineStr"><is>${inlineText(val, (L.sizes && L.sizes[col]) || 14)}</is></c>`);
     }
     rows.push(`<row r="${rn}" spans="1:${L.ncols}" ht="${L.height}" customHeight="1">${cells.join('')}</row>`);
   }
