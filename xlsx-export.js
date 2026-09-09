@@ -128,7 +128,7 @@ export const LAYOUT = {
     "headerRow": 3,
     "firstRow": 4,
     "ncols": 30,
-    "height": 51.75,
+    "height": 24.95,
     "styles": {
       "A": "3",
       "B": "17",
