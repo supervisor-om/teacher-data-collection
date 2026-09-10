@@ -483,7 +483,7 @@ const GOV = [
     { id:'managerPhone_gov', name:'هاتف مدير المدرسة', label:'رقم هاتف المدير', col:6, type:'tel', num:true, im:'tel' }
   ]},
   { title: 'بيانات المعلّم', fields: [
-    { id:'teacherName_gov',  name:'اسم المعلم', col:6, ac:'name', ph:'الاسم الثلاثي', help:'اضافة (بن) بين كل اسم (للعمانيين).' },
+    { id:'teacherName_gov',  name:'اسم المعلم', col:6, ac:'name', ph:'الاسم الثلاثي', help:'للعماني تُضاف (بن) تلقائياً بين الأسماء بعد اختيار الجنسية.' },
     { id:'nationality_gov',  name:'الجنسية', col:3, ph:'مثال: عُماني' },
     { id:'civilId_gov',      name:'الرقم المدني', col:3, num:true, im:'numeric' },
     { id:'dob_gov',          name:'تاريخ الميلاد', col:4, type:'date', ac:'bday' },
@@ -926,6 +926,44 @@ function cleanClassRange(raw) {
   return { ok: true, value: a === b ? `(${a})` : `(${a}-${b})` };
 }
 
+/* اسم المعلّم العماني: «بن» بين كل اسمين، والأخير اسم الأسرة فلا
+   تسبقه — «هاشم راشد سيف الهاشمي» ← «هاشم بن راشد بن سيف الهاشمي».
+   حكوميٌّ وعمانيٌّ فقط: غير العماني لا يُكتب اسمه هكذا، فيُترك كما
+   كتبه. والجنسية تُقرأ من حقلها لا من الاسم. */
+const OMANI_RE = /^(عمان[يى]?[هة]?|سلطنه عمان|omani?)$/i;
+
+function isOmaniNow() {
+  const el = document.getElementById('nationality_gov');
+  if (!el) return false;
+  const v = String(el.value || '')
+    .replace(/[إأآ]/g, 'ا').replace(/[ةه]/g, 'ه').replace(/[ىي]/g, 'ي')
+    .replace(/[ً-ْـ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return OMANI_RE.test(v);
+}
+
+/* «عبد» و«أبو» و«أم» تُضمّ إلى ما بعدها: «عبد الله» اسم واحد لا اسمان،
+   وإلّا خرج «عبد بن الله». ولا تُطابق «عبدالله» الموصولة أصلاً. */
+const BIND_RE = /^(عبد|ابو|أبو|بو|ام|أم|آل|ال)$/;
+
+function omaniName(raw) {
+  const s = tidyDigits(String(raw ?? '')).replace(/ـ/g, '').replace(/\s+/g, ' ').trim();
+  if (!s) return { ok: true, value: '' };
+  if (!isOmaniNow()) return { ok: true, value: s };
+
+  const merged = [];
+  for (const w of s.split(' ')) {
+    if (merged.length && BIND_RE.test(merged[merged.length - 1])) merged[merged.length - 1] += ' ' + w;
+    else merged.push(w);
+  }
+  /* أداة النسب تُوحَّد على ما كتبه المعلّم: من كتب «بنت» فهي معلّمة */
+  const link = /(^|\s)بنت(\s|$)/.test(s) ? 'بنت' : 'بن';
+  /* تُسقط أدوات النسب القائمة ثم تُعاد موحّدة، فلا تتكرّر ولا تسبق
+     اسم الأسرة كما في «أحمد بن سالم بن الرواس» */
+  const kept = merged.filter((w) => w !== 'بن' && w !== 'بنت');
+  if (kept.length < 2) return { ok: true, value: kept.join(' ') };
+  return { ok: true, value: kept.slice(0, -1).join(' ' + link + ' ') + ' ' + kept[kept.length - 1] };
+}
+
 const CLEANERS = {
   teacherPhone_gov:     (v) => cleanPhone(v, true),
   teacherPhone_private: (v) => cleanPhone(v, true),
@@ -939,6 +977,7 @@ const CLEANERS = {
   classesTaught_gov:     cleanGrades,
   classesTaught_private: cleanGrades,
   schoolClasses_private: cleanClassRange,
+  teacherName_gov:       omaniName,
   schoolName_gov:        (v) => canonSchool(v, "حكومية"),
   schoolName_private:    (v) => canonSchool(v, "خاصة")
 };
@@ -1195,6 +1234,12 @@ form.addEventListener('change', (e) => {
     if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', e.target.value === '');
     refillDependents(e.target.id);
     mark(e.target, fieldValid(e.target));
+    /* الجنسية تُملأ بعد الاسم في ترتيب الاستمارة، وصيغة الاسم متوقّفة
+       عليها — فيُعاد تنقيحه عند تغيّرها مهما كان ترتيب الملء. */
+    if (e.target.id === 'nationality_gov') {
+      const nm = document.getElementById('teacherName_gov');
+      if (nm && nm.value.trim()) mark(nm, fieldValid(nm));
+    }
   }
   updateMeta();
   scheduleSave();
