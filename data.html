@@ -627,8 +627,31 @@ const db = getFirestore(app_);
  * ==================================================================== */
 let ALL = [];
 let type = 'حكومية';
-let sortKey = 'المدرسة';
-let sortDir = 1;
+/* اختيار الفرز يبقى ما دام التبويب مفتوحاً، ويزول بإغلاقه — كرمز
+   الدخول. لكلّ نوعِ مدرسةٍ اختيارُه: أعمدة الحكومي غير أعمدة الخاص،
+   فلا يُورَّث فرزٌ على عمودٍ لا وجود له في الآخر. */
+const SORT_KEY = 'tdc-sort';
+function loadSort(t) {
+  try {
+    const raw = sessionStorage.getItem(SORT_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const v = all[t];
+    if (v && typeof v.k === 'string' && (v.d === 1 || v.d === -1)
+        && (COLS[t] || []).includes(v.k)) return v;
+  } catch (e) {}
+  return { k: 'المدرسة', d: 1 };
+}
+function saveSort() {
+  try {
+    const raw = sessionStorage.getItem(SORT_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    all[type] = { k: sortKey, d: sortDir };
+    sessionStorage.setItem(SORT_KEY, JSON.stringify(all));
+  } catch (e) {}
+}
+
+let sortKey = loadSort(type).k;
+let sortDir = loadSort(type).d;
 let revealed = false;
 let onlyGaps = false;
 
@@ -740,12 +763,22 @@ function current() {
     rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
   }
   const dir = sortDir;
+  const byName = (a, b) =>
+    String(a['اسم المعلم'] == null ? '' : a['اسم المعلم'])
+      .localeCompare(String(b['اسم المعلم'] == null ? '' : b['اسم المعلم']), 'ar');
+
   rows.sort((a, b) => {
-    const x = String(a[sortKey] == null ? '' : a[sortKey]);
-    const y = String(b[sortKey] == null ? '' : b[sortKey]);
+    const x = String(a[sortKey] == null ? '' : a[sortKey]).trim();
+    const y = String(b[sortKey] == null ? '' : b[sortKey]).trim();
+    /* الفراغ آخراً في الاتجاهين: عمودٌ نصفه فارغ كان يبدأ بصفحةٍ من
+       الفراغات في التصاعدي، فلا يُرى منه شيء إلا بعد تمرير طويل. */
+    if (!x && !y) return byName(a, b);
+    if (!x) return 1;
+    if (!y) return -1;
     const nx = Number(norm(x)), ny = Number(norm(y));
-    if (x !== '' && y !== '' && !isNaN(nx) && !isNaN(ny)) return (nx - ny) * dir;
-    return x.localeCompare(y, 'ar') * dir;
+    const c = (!isNaN(nx) && !isNaN(ny)) ? (nx - ny) * dir : x.localeCompare(y, 'ar') * dir;
+    /* المتساوون في عمود الفرز يُرتَّبون بالاسم لا بترتيب الإدخال */
+    return c || byName(a, b);
   });
 
   /* معلّمو المدرسة الواحدة يبقون متتالين مهما كان عمود الفرز: تُرتَّب
@@ -758,7 +791,12 @@ function current() {
     groups.get(k).push(r);
   }
   const out = [];
-  for (const g of groups.values()) for (const r of g) out.push(r);
+  for (const g of groups.values()) {
+    /* داخل المدرسة كان الترتيب ترتيبَ الإدخال، فيُرتَّب بالاسم —
+       إلا أن يكون الفرز على الاسم نفسه فهو مرتَّبٌ سلفاً. */
+    if (sortKey !== 'اسم المعلم') g.sort(byName);
+    for (const r of g) out.push(r);
+  }
   return out;
 }
 
@@ -1449,8 +1487,7 @@ for (const t of document.querySelectorAll('.tab')) {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
     type = t.dataset.type;
-    sortKey = 'المدرسة';
-    sortDir = 1;
+    { const v = loadSort(type); sortKey = v.k; sortDir = v.d; }
     el('school').value = '';
     fillSchools();
     render();
@@ -1462,6 +1499,7 @@ el('head').addEventListener('click', (e) => {
   if (!th) return;
   const col = th.dataset.col;
   if (sortKey === col) sortDir = -sortDir; else { sortKey = col; sortDir = 1; }
+  saveSort();
   render();
 });
 
