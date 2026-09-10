@@ -454,6 +454,9 @@ const AREAS = {
 };
 
 /* الحقل التابع ← أبوه وقائمة مناطقه */
+/* الأعزب لا أبناء له، فحقل العدد لا يُعرض إلا لهاتين. */
+const MARRIED = ['متزوج', 'متزوجة'];
+
 const DEPENDS = {
   schoolLocation_private: { parent: 'wilayat_private', map: AREAS }
 };
@@ -489,6 +492,9 @@ const GOV = [
     { id:'dob_gov',          name:'تاريخ الميلاد', col:4, type:'date', ac:'bday' },
     { id:'teacherPhone_gov', name:'الهاتف', col:4, type:'tel', num:true, im:'tel', ac:'tel' },
     { id:'maritalStatus_gov',name:'الحالة الاجتماعية', col:4, type:'select', ph:'الرجاء التحديد', options:OPT.marital },
+    { id:'children_gov',     name:'عدد الأبناء', col:4, type:'select', ph:'اختر العدد',
+      options:range(0, 15), optional:true, showWhen:{ field:'maritalStatus_gov', values:MARRIED },
+      help:'يُضاف إلى الحالة الاجتماعية: متزوج +2' },
     { id:'email_gov',        name:'البريد الالكتروني', col:6, type:'email', ac:'email', ph:'salim@moe.om', help:'البريد الوزاري إن أمكن.' }
   ]},
   { title: 'المؤهل والتخصص', fields: [
@@ -532,6 +538,9 @@ const PRIVATE = [
     { id:'teacherName_private',   name:'اسم المعلم', col:6, ac:'name' },
     { id:'nationality_private',   name:'الجنسية', col:3 },
     { id:'maritalStatus_private', name:'الحالة الاجتماعية', col:3, type:'select', ph:'الرجاء التحديد', options:OPT.marital },
+    { id:'children_private',   name:'عدد الأبناء', col:3, type:'select', ph:'اختر العدد',
+      options:range(0, 15), optional:true, showWhen:{ field:'maritalStatus_private', values:MARRIED },
+      help:'يُضاف إلى الحالة الاجتماعية: متزوجة +4' },
     { id:'teacherPhone_private',  name:'الهاتف', col:4, type:'tel', num:true, im:'tel', ac:'tel' },
     { id:'qualification_private', name:'المؤهل', col:4, help:'مثال: بكالوريوس.' },
     { id:'specialization_private',name:'التخصص', col:4 },
@@ -563,6 +572,7 @@ const KEYS = [
   'الهاتف','الجنسية','المؤهل','الحالة الاجتماعية','اللغة التي يتم تدريس بها المادة',
   'اسم مدير المدرسة','جنسية مدير المدرسة','هاتف مدير المدرسة','المنهاج','التقويم','رياضة (11)','رياضة (12)',
   'الموافقة على التعيين','موقع المدرسة','هاتف آخر للمدرسة','مدرجة','كفالة المدرسة',
+  'عدد الأبناء',
   'عدد معلمي الرياضة','رقم الملف','الفصول التي تدرسها','السكن الحالي','سنة التعيين',
   'الدرجة المالية','الرقم المدني','الجامعة','تاريخ الميلاد','العنوان الدائم','البريد الالكتروني'
 ];
@@ -1097,6 +1107,45 @@ const renderSection = (sec, i) =>
 
 /* يُعاد بناء خيارات الحقل التابع كلّما تغيّر أبوه. تُحفَظ القيمة السابقة
    إن كانت ما زالت ضمن مناطق الولاية الجديدة، وتُمحى إن لم تكن. */
+/* ── حقولٌ تظهر بشرط ──
+   «عدد الأبناء» لا معنى له للأعزب، فيُخفى حتى تُختار حالةٌ تقتضيه.
+   والمخفيّ تُمسح قيمته ويُنزع required عنه، وإلّا منع الإرسالَ حقلٌ لا
+   يراه المرسِل. */
+const SHOW_WHEN = {};
+
+function syncShown(parentId) {
+  for (const id of Object.keys(SHOW_WHEN)) {
+    const w = SHOW_WHEN[id];
+    if (parentId && w.field !== parentId) continue;
+    const child  = document.getElementById(id);
+    const parent = document.getElementById(w.field);
+    if (!child || !parent) continue;
+    const on = w.values.indexOf(parent.value) !== -1;
+    const wrap = child.closest('[data-field]');
+    if (wrap) wrap.hidden = !on;
+    if (!on && child.value) {
+      child.value = '';
+      child.classList.add('is-empty');
+      const box = child.closest('[data-field]');
+      if (box) box.classList.remove('is-invalid');
+    }
+  }
+}
+
+/* الحالة الاجتماعية وعدد الأبناء يُحفظان قيمةً واحدة: «متزوج +2». طلبها
+   المشرف مدمجةً لا عمودين، فتظهر كذلك في الجدول وفي Excel وفي واتساب
+   بلا تغييرٍ في أيّها. ومن لا أبناء له تبقى حالته مجرّدة كما هي في
+   السجلات القائمة، فلا تُلحق به «+0». */
+function mergeMarital(values) {
+  const base = values['الحالة الاجتماعية'];
+  const kids = values['عدد الأبناء'];
+  delete values['عدد الأبناء'];
+  if (!base || MARRIED.indexOf(base) === -1) return values;
+  const n = parseInt(String(kids ?? '').replace(/[^0-9]/g, ''), 10);
+  if (n > 0) values['الحالة الاجتماعية'] = base + ' +' + n;
+  return values;
+}
+
 function refillDependents(parentId) {
   for (const childId of Object.keys(DEPENDS)) {
     const d = DEPENDS[childId];
@@ -1230,6 +1279,11 @@ let currentType = null;   /* النوع الجاري — تُبنى عليه ا�
 function renderForm(type) {
   currentType = type;
   host.innerHTML = (type === 'حكومية' ? GOV : PRIVATE).map(renderSection).join('');
+  /* تُبنى الشروط مع النموذج، فتتبدّل بتبدّل النوع */
+  for (const k of Object.keys(SHOW_WHEN)) delete SHOW_WHEN[k];
+  for (const sec of (type === 'حكومية' ? GOV : PRIVATE))
+    for (const f of sec.fields) if (f.showWhen) SHOW_WHEN[f.id] = f.showWhen;
+  syncShown(null);
   refreshSchoolList();
   host.hidden = false;
   actions.hidden = false;
@@ -1279,6 +1333,7 @@ form.addEventListener('change', (e) => {
   } else if (e.target.classList.contains('control')) {
     if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', e.target.value === '');
     refillDependents(e.target.id);
+    syncShown(e.target.id);
     mark(e.target, fieldValid(e.target));
     /* الجنسية تُملأ بعد الاسم في ترتيب الاستمارة، وصيغة الاسم متوقّفة
        عليها — فيُعاد تنقيحه عند تغيّرها مهما كان ترتيب الملء. */
@@ -1347,6 +1402,8 @@ form.addEventListener('submit', async (e) => {
     const v = data.get(key);
     if (v !== null && String(v).trim() !== '') values[key] = String(v).trim();
   }
+
+  mergeMarital(values);
 
   const type    = values['نوع المدرسة'];
   const idField = IDENTITY[type];
