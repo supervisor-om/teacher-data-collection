@@ -142,6 +142,20 @@ td.gap{width:1%;text-align:center}
 .chip--ok{background:#e7f4ef;color:var(--ok);border-color:#c9e6db}
 /* الخانة الناقصة نفسها تُحمَّر، فيُعرف أيّ حقل ينقص بلا وقوفٍ على
    الشارة. والحدّ الجانبي يميّزها في الطباعة حيث قد تُسقَط الخلفيات. */
+/* قائمة المدارس الناقصة: مطويّة فلا تزاحم الجدول، وتُفتح عند
+   الملاحقة. كلّ مدرسة زرٌّ يُصفّي الجدول عليها. */
+.absent{margin:0 0 12px;border:1px solid var(--danger-line);border-radius:var(--r);
+  background:var(--danger-tint)}
+.absent>summary{padding:8px 12px;font-size:13px;font-weight:600;color:var(--danger);cursor:pointer}
+.absent__grid{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 12px}
+.absent__item{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;
+  border:1px solid var(--danger-line);border-radius:999px;background:var(--surface);
+  font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer}
+.absent__item:hover{border-color:var(--danger);background:#fff}
+.absent__n{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+  border-radius:999px;background:var(--danger);color:#fff;font-size:11px;font-weight:700}
+.absent__sub{color:var(--ink-3);font-size:11.5px}
+@media print{ .absent{display:none} }
 td.miss{background:var(--danger-tint);color:var(--danger);
   box-shadow:inset 2px 0 0 var(--danger)}
 td.miss .mask{color:var(--danger)}
@@ -295,9 +309,16 @@ tr:hover td.miss{background:#fbe6e4}
         <span class="stat__l">معلّماً مسجَّلاً</span></div>
       <div class="stat stat--warn"><span class="stat__n" id="s-gaps">—</span>
         <span class="stat__l">تنقصهم بيانات</span></div>
+      <div class="stat stat--warn" id="stat-absent" hidden><span class="stat__n" id="s-absent">—</span>
+        <span class="stat__l">لم يرسلوا بياناتهم<span id="s-absent-note"></span></span></div>
     </div>
 
     <p class="note" id="note"></p>
+
+    <details class="absent" id="absent-box" hidden>
+      <summary>المدارس التي ينقصها معلّمون لم يرسلوا بياناتهم</summary>
+      <div class="absent__grid" id="absent-list"></div>
+    </details>
 
     <div class="scroll">
       <table id="table">
@@ -812,6 +833,31 @@ function current() {
   return out;
 }
 
+/* ── المعلّمون الذين لم يرسلوا بياناتهم ──
+   كلّ معلّم يذكر عدد معلّمي الرياضة في مدرسته، فالعدد المُعلَن هو ما
+   تقوله المدرسة عن نفسها، والمسجَّل ما وصل فعلاً. الفرق بينهما زملاءُ
+   لم يرسلوا — وهم لا يظهرون في أيّ عدّاد لأنّ سجلّهم غير موجود أصلاً.
+
+   يُؤخذ الأكبر حين يختلف معلّمو المدرسة في الإعلان: من قال خمسة يعرف
+   زميلاً لا يعرفه من قال أربعة، والعكس غير وارد. والتجميع بمفتاح
+   المدرسة لا بنصّها كي لا تُحسب صيغتان لمدرسة واحدة مدرستين. */
+function absentBySchool(rows) {
+  const by = new Map();
+  for (const r of rows) {
+    const k = schoolKey(r['المدرسة']);
+    if (!k) continue;
+    const g = by.get(k) || { label: '', n: 0, declared: 0, votes: new Set() };
+    const raw = String(r['المدرسة'] || '').trim();
+    if (!g.label || raw.length > g.label.length) g.label = raw;
+    g.n++;
+    const d = parseInt(String(r['عدد معلمي الرياضة'] || '').replace(/\D/g, ''), 10);
+    if (d > 0) { g.declared = Math.max(g.declared, d); g.votes.add(d); }
+    by.set(k, g);
+  }
+  for (const g of by.values()) g.absent = Math.max(0, g.declared - g.n);
+  return by;
+}
+
 function fillSchools() {
   const mine = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
   /* تُجمع صيغ الاسم الواحد تحت مفتاح واحد كي لا يختفي معلّمو مدرسة
@@ -838,12 +884,19 @@ function fillSchools() {
                    || (b[1] - a[1])
                    || (a[0].length - b[0].length))[0][0];
   }
+  /* النقص بجوار اسم المدرسة: المشرف يختار مدرسةً ليلاحق أهلها، فيرى
+     قبل الاختيار كم ينقصها. للحكومية وحدها — الخاصة لا يُعلَن فيها
+     عددٌ يُقاس عليه. */
+  const absent = type === 'حكومية' ? absentBySchool(mine) : new Map();
   const keepSchool = el('school').value;
   const schoolOpts = [...byKey.entries()]
     .sort((a, b) => a[1].label.localeCompare(b[1].label, 'ar'));
   el('school').innerHTML = '<option value="">كل المدارس</option>' +
-    schoolOpts.map(([k, g]) =>
-      `<option value="${esc(k)}">${esc(g.label)} (${g.n})</option>`).join('');
+    schoolOpts.map(([k, g]) => {
+      const a = absent.get(k);
+      const tail = a && a.absent ? ` — ينقص ${a.absent}` : '';
+      return `<option value="${esc(k)}">${esc(g.label)} (${g.n})${esc(tail)}</option>`;
+    }).join('');
   el('school').value = byKey.has(keepSchool) ? keepSchool : '';
 
   /* السجلات السابقة للتقسيم بلا مشرف، فتُجمع تحت بند صريح بدل أن تختفي */
@@ -919,6 +972,29 @@ function render() {
     (filtered ? `<span class="stat__sub">من ${total}</span>` : '');
   el('s-gaps').textContent = gaps;
   { const card = el('s-gaps').closest('.stat'); if (card) card.classList.toggle('is-clear', !gaps); }
+
+  /* «لم يرسلوا» يُقاس على كامل نطاق المشرف لا على المعروض: تصفيةٌ
+     بمدرسةٍ واحدة لا تعني أنّ باقي المدارس اكتملت. وتُخفى البطاقة في
+     المدارس الخاصة إذ لا عدد مُعلَن فيها. */
+  const absCard = el('stat-absent');
+  if (absCard) {
+    const abs = type === 'حكومية' ? absentBySchool(allRows) : new Map();
+    const list = [...abs.values()].filter((g) => g.absent)
+      .sort((a, b) => b.absent - a.absent || a.label.localeCompare(b.label, 'ar'));
+    const totalAbsent = list.reduce((n, g) => n + g.absent, 0);
+    absCard.hidden = type !== 'حكومية';
+    el('s-absent').textContent = totalAbsent;
+    absCard.classList.toggle('is-clear', !totalAbsent);
+    const n2 = el('s-absent-note');
+    if (n2) n2.innerHTML = list.length
+      ? `<span class="stat__sub">في ${list.length} مدرسة</span>` : '';
+    el('absent-list').innerHTML = list.length
+      ? list.map((g) => `<button type="button" class="absent__item" data-abs="${esc(schoolKey(g.label))}">`
+          + `<span class="absent__n">${g.absent}</span>${esc(g.label)}`
+          + `<span class="absent__sub">أرسل ${g.n} من ${g.declared}</span></button>`).join('')
+      : '';
+    el('absent-box').hidden = !list.length;
+  }
   /* نطاق فارغ: «٠ معلّماً… جميعهم مكتملون» عبثٌ يراه كل مشرف لم يُسنَد
      إليه أحد بعد، فيُستبدَل بما يشرح الحال ويدلّ على الخطوة التالية. */
   if (!total) {
@@ -1521,6 +1597,16 @@ el('head').addEventListener('click', (e) => {
   if (sortKey === col) sortDir = -sortDir; else { sortKey = col; sortDir = 1; }
   saveSort();
   render();
+});
+
+/* النقر على مدرسةٍ ناقصة يصفّي الجدول عليها، فيرى المشرف من أرسل
+   منها ويعرف من بقي. */
+el('absent-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-abs]');
+  if (!b) return;
+  el('school').value = b.dataset.abs;
+  render();
+  el('school').scrollIntoView({ block: 'center', behavior: 'smooth' });
 });
 
 el('q').addEventListener('input', render);
