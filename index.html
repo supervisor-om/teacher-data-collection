@@ -538,9 +538,6 @@ const PRIVATE = [
     { id:'teacherName_private',   name:'اسم المعلم', col:6, ac:'name' },
     { id:'nationality_private',   name:'الجنسية', col:3 },
     { id:'maritalStatus_private', name:'الحالة الاجتماعية', col:3, type:'select', ph:'الرجاء التحديد', options:OPT.marital },
-    { id:'children_private',   name:'عدد الأبناء', col:3, type:'select', ph:'اختر العدد',
-      options:range(0, 15), optional:true, showWhen:{ field:'maritalStatus_private', values:MARRIED },
-      help:'يُضاف إلى الحالة الاجتماعية: متزوجة +4' },
     { id:'teacherPhone_private',  name:'الهاتف', col:4, type:'tel', num:true, im:'tel', ac:'tel' },
     { id:'qualification_private', name:'المؤهل', col:4, help:'مثال: بكالوريوس.' },
     { id:'specialization_private',name:'التخصص', col:4 },
@@ -1138,6 +1135,8 @@ function syncShown(parentId) {
    السجلات القائمة، فلا تُلحق به «+0». */
 function mergeMarital(values) {
   const base = values['الحالة الاجتماعية'];
+  /* الحكومي وحده: نموذج المدارس الخاصة لا حقل أبناء فيه. */
+  if (values['نوع المدرسة'] !== 'حكومية') { delete values['عدد الأبناء']; return values; }
   const kids = values['عدد الأبناء'];
   delete values['عدد الأبناء'];
   if (!base || MARRIED.indexOf(base) === -1) return values;

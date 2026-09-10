@@ -1123,11 +1123,7 @@ const ICON_DEL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" st
 const OPTIONS = {
   'المشرف': SUPERVISORS.map((x) => x.name),
   'الولاية': ['مسقط', 'مطرح', 'بوشر', 'السيب', 'العامرات', 'قريات'],
-  /* الأبناء مدموجون في الحالة: «متزوج +2». تُولَّد الصيغ كلّها كي
-     يبقى الحقل قائمةً مغلقة، فلا تتكاثر صيغُ القيمة الواحدة. */
-  'الحالة الاجتماعية': ['اعزب', 'عزباء', 'متزوج', 'متزوجة'].concat(
-    ['متزوج', 'متزوجة'].flatMap((b) =>
-      Array.from({ length: 15 }, (_, i) => b + ' +' + (i + 1)))),
+  'الحالة الاجتماعية': ['متزوج', 'اعزب', 'متزوجة', 'عزباء'],
   'اللغة التي يتم تدريس بها المادة': ['عربي', 'انجليزي', 'عربي وانجليزي'],
   'المنهاج': ['منهاج حكومي', 'منهاج خاص', 'منهاج حكومي + خاص'],
   'التقويم': ['تقويم حكومي', 'تقويم خاص', 'تقويم حكومي + خاص'],
@@ -1137,6 +1133,18 @@ const OPTIONS = {
   'رياضة (11)': ['نعم', 'لا يوجد'],
   'رياضة (12)': ['نعم', 'لا يوجد']
 };
+
+/* الأبناء مدموجون في الحالة الاجتماعية بالحكومي وحده: «متزوج +2».
+   تُولَّد صيغُها هناك كي يبقى الحقل قائمةً مغلقة فلا تتكاثر صيغُ القيمة
+   الواحدة، ولا تظهر في الخاصة إذ لا حقل أبناء في نموذجها. */
+const WITH_KIDS = ['متزوج', 'متزوجة']
+  .flatMap((b) => Array.from({ length: 15 }, (_, i) => b + ' +' + (i + 1)));
+
+function optionsFor(col, type) {
+  const base = OPTIONS[col];
+  if (!base) return null;
+  return (col === 'الحالة الاجتماعية' && type === 'حكومية') ? base.concat(WITH_KIDS) : base;
+}
 
 let editing = null;    /* السجلّ المفتوح في نافذة التعديل */
 let creating = false;  /* هل النافذة لإضافة سجلّ جديد؟ */
@@ -1286,10 +1294,11 @@ function openEdit(id, draft) {
   el('edit-grid').innerHTML = COLS[r['نوع المدرسة']].filter((c) => c !== REF).map((c, i) => {
     const val = r[c] == null ? '' : String(r[c]);
     const fid = 'f' + i;
-    const body = OPTIONS[c]
+    const opts = optionsFor(c, r['نوع المدرسة']);
+    const body = opts
       ? '<select id="' + fid + '" class="control" data-key="' + esc(c) + '"><option value="">—</option>' +
-        OPTIONS[c].map((o) => '<option value="' + esc(o) + '"' + (o === val ? ' selected' : '') + '>' + esc(o) + '</option>').join('') +
-        (val && OPTIONS[c].indexOf(val) === -1
+        opts.map((o) => '<option value="' + esc(o) + '"' + (o === val ? ' selected' : '') + '>' + esc(o) + '</option>').join('') +
+        (val && opts.indexOf(val) === -1
           ? '<option value="' + esc(val) + '" selected>' + esc(val) + '</option>' : '') +
         '</select>'
       : '<input id="' + fid + '" class="control" data-key="' + esc(c) + '" value="' + esc(val) + '" autocomplete="off">';
