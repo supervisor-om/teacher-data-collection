@@ -102,6 +102,7 @@ td.pick input,th.pick input{width:15px;height:15px;cursor:pointer;accent-color:v
   border:1px solid var(--line-2);border-radius:var(--r);font-size:13px}
 .bulkbar__n{font-weight:600;color:var(--brand)}
 .bulkbar__sep{width:1px;align-self:stretch;margin:0 2px;background:var(--line-2)}
+.bulkbar__grp{display:inline-flex;align-items:center;gap:10px}
 /* النقص خللٌ يُلاحَق لا تنبيهٌ يُقرأ، فلونه لون الخطر لا الكهرمان.
    ويصير رمادياً حين لا نقص، فلا تبقى بطاقةٌ حمراء بلا سبب. */
 .stat--warn .stat__n{color:var(--danger)}
@@ -291,10 +292,12 @@ tr:hover td.miss{background:#fbe6e4}
 
     <div class="bulkbar" id="bulkbar" hidden>
       <span><span class="bulkbar__n" id="bulk-n">0</span> معلّماً محدَّداً</span>
-      <label for="bulk-sup">نقل إلى المشرف:</label>
-      <select class="control" id="bulk-sup" style="max-width:220px"></select>
-      <button type="button" class="btn btn--solid" id="bulk-go">نقل</button>
-      <span class="bulkbar__sep" aria-hidden="true"></span>
+      <span class="bulkbar__grp" id="bulk-sup-grp">
+        <label for="bulk-sup">نقل إلى المشرف:</label>
+        <select class="control" id="bulk-sup" style="max-width:220px"></select>
+        <button type="button" class="btn btn--solid" id="bulk-go">نقل</button>
+        <span class="bulkbar__sep" aria-hidden="true"></span>
+      </span>
       <label for="bulk-type">نقل إلى نوع:</label>
       <select class="control" id="bulk-type" style="max-width:150px">
         <option value="">اختر النوع…</option>
@@ -933,17 +936,19 @@ function render() {
   const q = norm(el('q').value);
 
   /* عمود التحديد للمدير وحده: النقل بين المشرفين صلاحيته. */
-  const pickHead = isAdmin()
-    ? '<th class="pick"><input type="checkbox" id="pick-all" title="تحديد الظاهرين"></th>' : '';
+  /* التحديد متاح لكل مشرف: نقل النوع حقُّه في معلّميه. أمّا نقلهم بين
+     المشرفين فللأوّل وحده، وتُخفى أدواته دونه. */
+  const pickHead =
+    '<th class="pick"><input type="checkbox" id="pick-all" title="تحديد الظاهرين"></th>';
   el('head').innerHTML = pickHead + '<th></th><th></th><th title="الحقول الناقصة">ناقص</th>' + cols.map((c) =>
     `<th data-col="${esc(c)}">${esc(c === REF ? 'المرجع' : c)}` +
     (sortKey === c ? `<span class="dir">${sortDir > 0 ? '▲' : '▼'}</span>` : '') + '</th>').join('');
 
   el('rows').innerHTML = rows.map((r, i) => {
     const miss = missSet(r);
-    return '<tr>' + (isAdmin()
-      ? '<td class="pick"><input type="checkbox" class="pick-one" data-pick="' + r.__id + '"' +
-        (picked.has(r.__id) ? ' checked' : '') + '></td>' : '') +
+    return '<tr>' +
+      '<td class="pick"><input type="checkbox" class="pick-one" data-pick="' + r.__id + '"' +
+      (picked.has(r.__id) ? ' checked' : '') + '></td>' +
     '<td class="idx">' + (i + 1) + '</td>' + actions(r) + gapCell(r) + cols.map((c) => {
       const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '')
@@ -1289,8 +1294,9 @@ function scopeSummary(n) {
 function syncBulkBar() {
   const bar = el("bulkbar");
   if (!bar) return;
-  if (!isAdmin()) { bar.hidden = true; picked.clear(); return; }
   bar.hidden = picked.size === 0;
+  const grp = el("bulk-sup-grp");
+  if (grp) grp.hidden = !isAdmin();
   el("bulk-n").textContent = String(picked.size);
   const sel = el("bulk-sup");
   if (sel && !sel.options.length) {
@@ -1307,8 +1313,11 @@ function syncBulkBar() {
 function clearPicked() { picked.clear(); render(); }
 
 async function movePicked() {
-  const to = el("bulk-sup").value;
   const msg = el("bulk-msg");
+  /* إسناد المعلّمين بين المشرفين شأنٌ إداري: تُخفى أدواته دون المشرف
+     الأول، ويُردّ الطلب هنا أيضاً فلا يكفي الإخفاء وحده. */
+  if (!isAdmin()) { msg.textContent = "نقل المعلّمين بين المشرفين للمشرف الأول."; return; }
+  const to = el("bulk-sup").value;
   if (!to) { msg.textContent = "اختر المشرف المنقول إليه."; return; }
   const ids = [...picked];
   const rows = ids.map(byId).filter(Boolean);
