@@ -14,7 +14,7 @@ export const LAYOUT = {
     "file": "tpl-gov.xlsx",
     "headerRow": 6,
     "firstRow": 7,
-    "ncols": 25,
+    "ncols": 26,
     "height": 24.95,
     "styles": {
       "A": "559",
@@ -41,7 +41,8 @@ export const LAYOUT = {
       "V": "556",
       "W": "557",
       "X": "556",
-      "Y": "558"
+      "Y": "558",
+      "Z": "556"
     },
     "sizes": {
       "A": "13",
@@ -68,7 +69,8 @@ export const LAYOUT = {
       "V": "16",
       "W": "16",
       "X": "16",
-      "Y": "12"
+      "Y": "12",
+      "Z": "16"
     },
     "cols": {
       "A": {
@@ -143,6 +145,9 @@ export const LAYOUT = {
       },
       "Y": {
         "k": "البريد الالكتروني"
+      },
+      "Z": {
+        "k": "الجنسية"
       }
     },
     "numeric": [
@@ -551,8 +556,12 @@ export async function buildWorkbook(kind, records, baseUrl = '') {
       xml = xml.replace('</sheetData>', buildRows(kind, records) + '</sheetData>');
       xml = xml.replace(/<dimension ref="([A-Z]+)\d+:[A-Z]+\d+"\/>/,
                         (_m, c) => `<dimension ref="${c}1:${endCol}${last}"/>`);
-      xml = xml.replace(/<autoFilter ref="([A-Z]+)\d+:[A-Z]+\d+"\/>/,
-                        (_m, c) => `<autoFilter ref="${c}${L.headerRow}:${endCol}${last}"/>`);
+      /* الوسم يحمل سمة xr:uid في القالبين، وكان التعبير يشترط انتهاءه
+         بعد ref مباشرةً فلا يطابق — فبقي نطاق الفلتر على ما ورثه القالب
+         (A6:BM46 في الحكومي) لا يشمل الصفوف المضافة. تُبدَّل قيمة ref
+         وحدها وتبقى بقيّة السمات كما هي. */
+      xml = xml.replace(/(<autoFilter[^>]*?ref=")[A-Z]+\d+:[A-Z]+\d+(")/,
+                        (_m, a, b) => `${a}A${L.headerRow}:${endCol}${last}${b}`);
       xml = xml.replace(/(<t xml:space="preserve">)\s*آخر تحديث[^<]*(<\/t>)/,
                         (_m, a, b) => a + esc(stampLine()) + b);
       e.data = enc.encode(xml);
