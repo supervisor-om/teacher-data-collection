@@ -101,6 +101,7 @@ td.pick input,th.pick input{width:15px;height:15px;cursor:pointer;accent-color:v
   padding:9px 12px;margin:0 0 10px;background:var(--brand-tint);
   border:1px solid var(--line-2);border-radius:var(--r);font-size:13px}
 .bulkbar__n{font-weight:600;color:var(--brand)}
+.bulkbar__sep{width:1px;align-self:stretch;margin:0 2px;background:var(--line-2)}
 /* النقص خللٌ يُلاحَق لا تنبيهٌ يُقرأ، فلونه لون الخطر لا الكهرمان.
    ويصير رمادياً حين لا نقص، فلا تبقى بطاقةٌ حمراء بلا سبب. */
 .stat--warn .stat__n{color:var(--danger)}
@@ -293,6 +294,14 @@ tr:hover td.miss{background:#fbe6e4}
       <label for="bulk-sup">نقل إلى المشرف:</label>
       <select class="control" id="bulk-sup" style="max-width:220px"></select>
       <button type="button" class="btn btn--solid" id="bulk-go">نقل</button>
+      <span class="bulkbar__sep" aria-hidden="true"></span>
+      <label for="bulk-type">نقل إلى نوع:</label>
+      <select class="control" id="bulk-type" style="max-width:150px">
+        <option value="">اختر النوع…</option>
+        <option value="حكومية">حكومية</option>
+        <option value="خاصة">خاصة</option>
+      </select>
+      <button type="button" class="btn" id="bulk-type-go">نقل النوع</button>
       <button type="button" class="btn" id="bulk-clear">إلغاء التحديد</button>
       <span id="bulk-msg" style="color:var(--ink-2)"></span>
     </div>
@@ -1332,6 +1341,75 @@ async function movePicked() {
   setTimeout(() => { el("undo").hidden = true; el("undo-btn").hidden = false; }, 8000);
 }
 
+/* ── نقل معلّم بين حكومي وخاص ──
+   لا يُغيَّر إلا «نوع المدرسة»: ما لا يلزم النوعَ الجديد يبقى محفوظاً
+   لا يُحذف، فالنقل يُعكَس بلا فقدٍ إن كان خطأً — والجدولُ لا يعرض إلا
+   أعمدة نوعه، فلا يظهر الزائد.
+
+   ويُنقل معه حقلٌ واحد يختلف مفتاحه بين النوعين وهو المعنى نفسه:
+   «الفصول التي تدرسها» في الحكومي هي «الصفوف التي يدرسها» في الخاص.
+   لولا نقله لظهر المعلّم ناقصاً وبياناته موجودة. */
+const TYPE_ALIAS = [['الفصول التي تدرسها', 'الصفوف التي يدرسها']];
+
+function typeMovePatch(r, to) {
+  const patch = { 'نوع المدرسة': to };
+  for (const [gov, pri] of TYPE_ALIAS) {
+    const from_ = to === 'خاصة' ? gov : pri;
+    const to_   = to === 'خاصة' ? pri : gov;
+    const v = String(r[from_] == null ? '' : r[from_]).trim();
+    if (v && !String(r[to_] == null ? '' : r[to_]).trim()) patch[to_] = v;
+  }
+  return patch;
+}
+
+async function moveType() {
+  const to = el('bulk-type').value;
+  const msg = el('bulk-msg');
+  if (!to) { msg.textContent = 'اختر النوع المنقول إليه.'; return; }
+  const rows = [...picked].map(byId).filter(Boolean);
+  if (!rows.length) { msg.textContent = 'لا سجلات محدَّدة.'; return; }
+  const moving = rows.filter((r) => r['نوع المدرسة'] !== to);
+  if (!moving.length) { msg.textContent = 'المحدَّدون في هذا النوع أصلاً.'; return; }
+
+  /* ما ينقص في النوع الجديد يُذكر قبل النقل لا بعده: أعمدة النوعين
+     مختلفة، فمعلّمٌ مكتملٌ هنا قد يصير ناقصاً هناك. */
+  const need = new Set();
+  for (const r of moving)
+    for (const k of REQUIRED[to] || [])
+      if (!String(r[k] == null ? '' : r[k]).trim()) need.add(k);
+  const warn = need.size
+    ? `\n\nستنقص هذه الحقول بعد النقل:\n\u2022 ${[...need].join('\n\u2022 ')}`
+    : '';
+  if (!confirm(`نقل ${moving.length} معلّماً إلى «${to}»؟` +
+               `\nلا يُحذف شيء من بياناتهم؛ يبقى ما لا يلزم النوع الجديد محفوظاً.${warn}`)) return;
+
+  const btn = el('bulk-type-go');
+  const label = btn.textContent;
+  btn.disabled = true;
+  let ok = 0, bad = 0;
+  for (const r of moving) {
+    btn.textContent = `جارٍ النقل… ${ok + bad + 1}/${moving.length}`;
+    const patch = typeMovePatch(r, to);
+    try {
+      await updateDoc(doc(db, 'teachers', r.__id), { ...patch, updatedAt: serverTimestamp() });
+      Object.assign(r, patch);
+      ok++;
+    } catch (err) { console.error('[type] تعذّر النقل:', err); bad++; }
+  }
+  btn.disabled = false;
+  btn.textContent = label;
+  msg.textContent = bad ? `نُقل ${ok} وتعذّر ${bad}` : '';
+  el('bulk-type').value = '';
+  picked.clear();
+  fillSchools();
+  render();
+  /* المنقولون خرجوا من التبويب الحالي إلى الآخر، فيُقال أين ذهبوا */
+  el('undo-text').textContent = `نُقل ${ok} معلّماً إلى «${to}» — افتح تبويب «${to}» لتراهم`;
+  el('undo').hidden = false;
+  el('undo-btn').hidden = true;
+  setTimeout(() => { el('undo').hidden = true; el('undo-btn').hidden = false; }, 9000);
+}
+
 function askDeleteAll() {
   const rows = deletableNow();
   if (!rows.length) { alert("لا توجد سجلات ظاهرة لحذفها."); return; }
@@ -1534,6 +1612,7 @@ el("head").addEventListener("change", (e) => {
 });
 
 el("bulk-go").addEventListener("click", movePicked);
+el("bulk-type-go").addEventListener("click", moveType);
 el("bulk-clear").addEventListener("click", clearPicked);
 
 el('rows').addEventListener('click', (e) => {
