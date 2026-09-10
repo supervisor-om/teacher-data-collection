@@ -516,6 +516,21 @@ function stampLine() {
   return `آخر تحديث: ${d.getDate()}/ ${d.getMonth() + 1} /${d.getFullYear()}م`;
 }
 
+/* القالب يُجلب طازجاً دائماً بينما قد يبقى هذا الملف في ذاكرة
+   المتصفّح، فتشير فهارس الأنماط هنا إلى أنماط لم تعد موجودة هناك —
+   وXlsx لا يشتكي: ينتج ملفاً يطلب Excel إصلاحه. يُفحص التطابق قبل
+   الكتابة ويُصرَّح بالخطأ، خيرٌ من ملفٍ معطوب بيد المشرف. */
+function assertStyles(kind, entries, dec) {
+  const st = entries.find((e) => e.name === 'xl/styles.xml');
+  if (!st) throw new Error('القالب بلا جدول أنماط.');
+  const m = /<cellXfs count="(\d+)"/.exec(dec.decode(st.data));
+  if (!m) return;
+  const have = +m[1];
+  const want = Math.max(...Object.values(LAYOUT[kind].styles).map(Number));
+  if (want >= have)
+    throw new Error('نسخة قديمة محفوظة في المتصفّح. حدّث الصفحة (Ctrl+F5) ثم أعد التصدير.');
+}
+
 /* ------------------------------------------------------------ الواجهة -- */
 export async function buildWorkbook(kind, records, baseUrl = '') {
   const L = LAYOUT[kind];
@@ -524,6 +539,8 @@ export async function buildWorkbook(kind, records, baseUrl = '') {
   const entries = readZip(await res.arrayBuffer());
 
   const dec = new TextDecoder();
+  assertStyles(kind, entries, dec);
+
   const enc = new TextEncoder();
   const last = Math.max(L.firstRow + records.length - 1, L.headerRow);
   const endCol = colName(L.ncols);
