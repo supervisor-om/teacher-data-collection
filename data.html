@@ -790,6 +790,7 @@ async function load() {
     /* بعد العرض وبلا انتظار: الاستمارة تقرأ هذه الوثيقة بقراءةٍ واحدة
        بدل المجموعة كاملة. */
     publishSchools(ALL);
+    publishIndex(ALL);
   } catch (err) {
     console.error('[data] تعذّر التحميل:', err);
     state.className = 'state state--err';
@@ -862,6 +863,36 @@ function current() {
    واحدة تقرؤها الاستمارة بقراءةٍ واحدة.
    ولا تُكتب إلا إن تغيّرت فعلاً: تحديثُ العارض لا يستهلك كتابةً كل مرّة. */
 let schoolsDocSig = '';
+
+/* دليل الاستمارات السابقة: بصمةُ المعرِّف ← رقم السجلّ. تقرؤه الاستمارة
+   لتعرف أيّ سجلّ تُحدّث، فلا تحتاج إلى قراءة بيانات المعلّمين — وبذلك
+   يمكن إغلاق القراءة خلف المصادقة دون أن تتعطّل الاستمارة العامّة. */
+let indexDocSig = '';
+const IDENTITY_FIELD = { 'حكومية': 'الرقم المدني', 'خاصة': 'الهاتف' };
+
+async function idKeyOf(type, value) {
+  const bare = norm(String(value ?? '')).replace(/[^0-9]/g, '');
+  if (!bare) return '';
+  const buf = await crypto.subtle.digest('SHA-256',
+    new TextEncoder().encode(type + '|' + bare));
+  return 'k' + [...new Uint8Array(buf)].slice(0, 12)
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function publishIndex(rows) {
+  try {
+    const map = {};
+    for (const r of rows) {
+      const t = r['نوع المدرسة'];
+      const k = await idKeyOf(t, r[IDENTITY_FIELD[t]]);
+      if (k) map[k] = r.__id;
+    }
+    const sig = JSON.stringify(map);
+    if (sig === indexDocSig) return;
+    await setDoc(doc(db, 'meta', 'index'), map, { merge: true });
+    indexDocSig = sig;
+  } catch (e) { console.warn('[index] تعذّر نشر الدليل:', e); }
+}
 
 function canonicalSchools(rows) {
   const out = {};

@@ -414,9 +414,8 @@ input[type=number].control{-moz-appearance:textfield}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, doc, addDoc, updateDoc, getDocs, getDoc, setDoc,
-         query, where, limit, arrayUnion,
-         serverTimestamp, deleteField, FieldPath }
+import { getFirestore, collection, doc, addDoc, updateDoc, getDoc, setDoc, arrayUnion,
+         serverTimestamp, deleteField }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const app = initializeApp({
@@ -658,20 +657,42 @@ function idCandidates(raw) {
 
 /* يبحث عن استمارة سابقة للمعلّم نفسه. يُصفّى نوع المدرسة في المتصفّح لا
    في الاستعلام، إذ يستلزم شرطان معاً فهرساً مركّباً يُنشأ يدوياً. */
+/* ── دليل الاستمارات السابقة ──
+   الاستمارة تبحث في مجموعة المعلّمين لتعرف إن كان للمرسِل استمارةٌ
+   سابقة فتُحدّثها بدل تسجيل نسخةٍ ثانية. وهذا البحثُ قراءةٌ من بيانات
+   المعلّمين — ولا سبيل إلى إغلاق القراءة خلف المصادقة ما دامت
+   الاستمارةُ العامّة تحتاجها.
+
+   فصار الدليل وثيقةً مستقلّة: بصمةُ المعرِّف ← رقم السجلّ. الاستمارة
+   تقرؤها وحدها فتعرف أيّ سجلّ تُحدّث، ولا تمسّ بيانات المعلّمين.
+   والبصمة لا تكشف رقماً مدنياً ولا هاتفاً، والوثيقة لا تحمل اسماً
+   ولا أيّ بيان شخصي. */
+async function idKey(type, value) {
+  const bare = toLatinDigits(String(value ?? '')).replace(/[^0-9]/g, '');
+  if (!bare) return '';
+  const buf = await crypto.subtle.digest('SHA-256',
+    new TextEncoder().encode(type + '|' + bare));
+  return 'k' + [...new Uint8Array(buf)].slice(0, 12)
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function findExisting(type, field, value) {
   if (!field || !value) return null;
-  const snap = await getDocs(query(
-    collection(db, 'teachers'),
-    where(new FieldPath(field), 'in', idCandidates(value)),
-    limit(10)
-  ));
-  const hits = [];
-  snap.forEach((d) => {
-    if ((d.data() || {})['نوع المدرسة'] === type) hits.push(d);
-  });
-  if (!hits.length) return null;
-  const exact = hits.find((d) => String((d.data() || {})[field]).trim() === String(value).trim());
-  return exact || hits[0];
+  const k = await idKey(type, value);
+  if (!k) return null;
+  const snap = await getDoc(doc(db, 'meta', 'index'));
+  const id = snap.exists() ? (snap.data() || {})[k] : null;
+  return id ? { id: String(id) } : null;
+}
+
+/* السجلّ الجديد يُضاف إلى الدليل فوراً، فلا ينتظر المرسِلُ تحديثَ
+   العارض ليُعرف أنّ له استمارة. وفشلها لا يعني شيئاً: بياناته حُفظت. */
+async function noteIndex(type, value, id) {
+  try {
+    const k = await idKey(type, value);
+    if (!k) return;
+    await setDoc(doc(db, 'meta', 'index'), { [k]: id }, { merge: true });
+  } catch (e) { console.warn('[index] تعذّرت إضافة الدليل:', e); }
 }
 
 /* ==================================================================== *
@@ -1347,7 +1368,9 @@ form.addEventListener('submit', async (e) => {
       for (const key of KEYS) patch[key] = (key in values) ? values[key] : deleteField();
       await updateDoc(doc(db, 'teachers', existing.id), patch);
     } else {
-      await addDoc(collection(db, 'teachers'), Object.assign({}, values, { createdAt: serverTimestamp() }));
+      const ref = await addDoc(collection(db, 'teachers'),
+                               Object.assign({}, values, { createdAt: serverTimestamp() }));
+      noteIndex(type, values[idField], ref.id);
     }
     /* بعد الحفظ لا قبله، وبلا انتظار: نجاحُ الاستمارة لا يتوقّف على
        تحديث قائمة الاقتراحات. */
