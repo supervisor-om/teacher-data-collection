@@ -787,6 +787,9 @@ async function load() {
     el('table').hidden = false;
     fillSchools();
     render();
+    /* بعد العرض وبلا انتظار: الاستمارة تقرأ هذه الوثيقة بقراءةٍ واحدة
+       بدل المجموعة كاملة. */
+    publishSchools(ALL);
   } catch (err) {
     console.error('[data] تعذّر التحميل:', err);
     state.className = 'state state--err';
@@ -853,6 +856,48 @@ function current() {
    يُؤخذ الأكبر حين يختلف معلّمو المدرسة في الإعلان: من قال خمسة يعرف
    زميلاً لا يعرفه من قال أربعة، والعكس غير وارد. والتجميع بمفتاح
    المدرسة لا بنصّها كي لا تُحسب صيغتان لمدرسة واحدة مدرستين. */
+/* ── وثيقة المدارس المعروفة ──
+   الاستمارة تحتاج أسماء المدارس لتقترحها على المعلّم، وكانت تقرأ
+   المجموعة كاملةً في كل فتحة. العارض يقرأها أصلاً، فيبني منها وثيقةً
+   واحدة تقرؤها الاستمارة بقراءةٍ واحدة.
+   ولا تُكتب إلا إن تغيّرت فعلاً: تحديثُ العارض لا يستهلك كتابةً كل مرّة. */
+let schoolsDocSig = '';
+
+function canonicalSchools(rows) {
+  const out = {};
+  for (const t of ['حكومية', 'خاصة']) {
+    const byKey = new Map();
+    for (const r of rows) {
+      if (r['نوع المدرسة'] !== t) continue;
+      const nm = String(r['المدرسة'] || '').trim();
+      const k = schoolKey(nm);
+      if (!k) continue;
+      const m = byKey.get(k) || new Map();
+      m.set(nm, (m.get(nm) || 0) + 1);
+      byKey.set(k, m);
+    }
+    /* الصيغة المعروضة: ما ذُكر فيه نطاق الصفوف أوّلاً، ثمّ الأكثر
+       تكراراً، ثمّ الأقصر — القاعدة نفسها في كل الملفّات. */
+    const hasR = (v) => /\(\d{1,2}(-\d{1,2})?\)\s*$/.test(v);
+    out[t] = [...byKey.values()]
+      .map((m) => [...m.entries()].sort((a, b) =>
+        (hasR(b[0]) - hasR(a[0])) || (b[1] - a[1]) || (a[0].length - b[0].length))[0][0])
+      .sort((a, b) => a.localeCompare(b, 'ar'));
+  }
+  return out;
+}
+
+async function publishSchools(rows) {
+  try {
+    const list = canonicalSchools(rows);
+    const sig = JSON.stringify(list);
+    if (sig === schoolsDocSig) return;          /* لم تتغيّر: لا كتابة */
+    await setDoc(doc(db, 'meta', 'schools'),
+                 { ...list, updatedAt: serverTimestamp() }, { merge: true });
+    schoolsDocSig = sig;
+  } catch (e) { console.warn('[schools] تعذّر نشر قائمة المدارس:', e); }
+}
+
 function absentBySchool(rows) {
   const by = new Map();
   for (const r of rows) {

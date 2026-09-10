@@ -414,7 +414,8 @@ input[type=number].control{-moz-appearance:textfield}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, doc, addDoc, updateDoc, getDocs, query, where, limit,
+import { getFirestore, collection, doc, addDoc, updateDoc, getDocs, getDoc, setDoc,
+         query, where, limit, arrayUnion,
          serverTimestamp, deleteField, FieldPath }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -791,31 +792,38 @@ const KNOWN_SCHOOLS = { "حكومية": new Map(), "خاصة": new Map() };
 const hasRange = (v) => /\(\d{1,2}(-\d{1,2})?\)\s*$/.test(v);
 
 async function loadKnownSchools() {
+  /* كانت تقرأ مجموعة المعلّمين كاملةً في كل فتحةٍ للاستمارة — مئةً
+     وثمانيةً وستّين قراءةً لمجرّد ملء قائمة اقتراحات، فنفدت الحصّة
+     اليومية وتوقّف الموقع. صارت تقرأ وثيقةً واحدة يبنيها العارض من
+     البيانات التي بين يديه أصلاً: قراءةٌ واحدة بدل مئةٍ وثمانٍ وستّين.
+     وإن غابت الوثيقة عملت الاستمارة بلا اقتراحات ولم يتعطّل شيء. */
   try {
-    const snap = await getDocs(collection(db, "teachers"));
-    const acc = { "حكومية": new Map(), "خاصة": new Map() };
-    snap.forEach((d) => {
-      const r = d.data() || {};
-      const t = r["نوع المدرسة"];
-      const name = String(r["المدرسة"] || "").trim();
-      if (!acc[t] || !name) return;
-      const k = schoolKey(name);
-      if (!k) return;
-      const m = acc[t].get(k) || new Map();
-      m.set(name, (m.get(name) || 0) + 1);
-      acc[t].set(k, m);
-    });
-    for (const t of Object.keys(acc)) {
+    const snap = await getDoc(doc(db, 'meta', 'schools'));
+    if (!snap.exists()) return;
+    const data = snap.data() || {};
+    for (const t of ['حكومية', 'خاصة']) {
+      const list = Array.isArray(data[t]) ? data[t] : [];
       const out = new Map();
-      for (const [k, variants] of acc[t]) {
-        out.set(k, [...variants.entries()].sort((a, b) =>
-          (hasRange(b[0]) - hasRange(a[0])) || (b[1] - a[1]) || (b[0].length - a[0].length)
-        )[0][0]);
+      for (const name of list) {
+        const k = schoolKey(name);
+        if (k && !out.has(k)) out.set(k, name);
       }
       KNOWN_SCHOOLS[t] = out;
     }
     refreshSchoolList();
   } catch (e) { console.warn("[schools] تعذّر تحميل المدارس المعروفة:", e); }
+}
+
+/* المدرسة التي يكتبها المعلّم قد تكون أوّل تسجيلٍ لها، فتُضاف إلى
+   الوثيقة لتظهر لمن بعده. كتابةٌ واحدة، ولا تقع إلا حين يكون الاسم
+   جديداً فعلاً. وفشلها لا يعني المعلّم: بياناته حُفظت قبلها. */
+async function noteSchool(type, name) {
+  const nm = String(name || '').trim();
+  if (!nm || !KNOWN_SCHOOLS[type] || KNOWN_SCHOOLS[type].has(schoolKey(nm))) return;
+  try {
+    await setDoc(doc(db, 'meta', 'schools'),
+                 { [type]: arrayUnion(nm), updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) { console.warn('[schools] تعذّرت إضافة المدرسة:', e); }
 }
 
 /* اقتراحات الكتابة: يرى المعلّم المدارس المسجَّلة فيختار الصيغة
@@ -1341,6 +1349,9 @@ form.addEventListener('submit', async (e) => {
     } else {
       await addDoc(collection(db, 'teachers'), Object.assign({}, values, { createdAt: serverTimestamp() }));
     }
+    /* بعد الحفظ لا قبله، وبلا انتظار: نجاحُ الاستمارة لا يتوقّف على
+       تحديث قائمة الاقتراحات. */
+    noteSchool(type, values['المدرسة']);
 
     clearDraft();
     document.getElementById('done-text').textContent = existing

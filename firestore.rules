@@ -64,6 +64,26 @@ service cloud.firestore {
          بلا علمه، ولا حاجة إليه من الواجهة. */
     }
 
+    /* ------------------------------------ قائمة المدارس المعروفة -- */
+    /* وثيقةٌ واحدة تقرؤها الاستمارة لتقترح أسماء المدارس، بدل قراءة
+       مجموعة المعلّمين كاملةً في كل فتحة — وهي التي أنفدت الحصّة
+       اليومية فتوقّف الموقع. لا تحمل بيانات معلّمين، فقراءتها لا
+       تكشف شيئاً؛ والكتابة مقيَّدة بشكلها فلا تُستعمل مخزناً. */
+    match /meta/schools {
+      function ok() {
+        return request.resource.data.keys().hasOnly(['حكومية', 'خاصة', 'updatedAt'])
+            && (!('حكومية' in request.resource.data)
+                || (request.resource.data['حكومية'] is list
+                    && request.resource.data['حكومية'].size() <= 500))
+            && (!('خاصة' in request.resource.data)
+                || (request.resource.data['خاصة'] is list
+                    && request.resource.data['خاصة'].size() <= 500));
+      }
+      allow read: if true;
+      allow create, update: if ok();
+      allow delete: if false;
+    }
+
     /* ------------------------------------------------ ما عدا ذلك -- */
     /* يمنع استعمال قاعدة البيانات مخزناً مجانياً لأي محتوى غريب */
     match /{document=**} {
