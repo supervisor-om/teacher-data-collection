@@ -39,7 +39,7 @@ export const LAYOUT = {
       "T": "505",
       "U": "506",
       "V": "507",
-      "W": "522",
+      "W": "526",
       "X": "509",
       "Y": "523"
     },
@@ -136,7 +136,7 @@ export const LAYOUT = {
       },
       "W": {
         "k": "تاريخ الميلاد",
-        "t": "year"
+        "t": "birthdate"
       },
       "X": {
         "k": "العنوان الدائم"
@@ -148,6 +148,9 @@ export const LAYOUT = {
     "numeric": [
       "B",
       "I"
+    ],
+    "dates": [
+      "W"
     ]
   },
   "خاصة": {
@@ -424,6 +427,23 @@ function colName(i) {
 }
 
 /* الأصل يكتب عام التعيين بلاحقة «م»، والميلاد يوم/شهر/سنة بلا أصفار بادئة */
+/* تاريخ الميلاد يُحفظ «1976-02-24» من حقل التاريخ في الاستمارة.
+   يُكتب رقماً تسلسلياً لا نصّاً كي يراه Excel تاريخاً حقيقياً فيفرزه
+   ويرشّحه، ويعرضه بتنسيق العمود dd/mm/yyyy. المبدأ 1899-12-30 هو
+   صفر تقويم Excel، والحساب بالتوقيت العالمي فلا يزيحه فارق المنطقة. */
+const EPOCH = Date.UTC(1899, 11, 30);
+function dateSerial(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v).trim());
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], da = +m[3];
+  if (mo < 1 || mo > 12 || da < 1 || da > 31 || y < 1900 || y > 2200) return null;
+  const t = Date.UTC(y, mo - 1, da);
+  const dt = new Date(t);
+  /* يُرفض ما لا يوجد في التقويم مثل 31 فبراير فيبقى نصّاً كما كُتب */
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== da) return null;
+  return Math.round((t - EPOCH) / 86400000);
+}
+
 const TRANSFORM = {
   year: (v) => (/^\d{4}$/.test(v) ? v + 'م' : v),
   birthdate: (v) => {
@@ -460,6 +480,7 @@ function inlineText(val, size) {
 function buildRows(kind, records) {
   const L = LAYOUT[kind];
   const num = new Set(L.numeric);
+  const dat = new Set(L.dates || []);
   const rows = [];
   for (let n = 0; n < records.length; n++) {
     const rec = records[n];
@@ -475,6 +496,10 @@ function buildRows(kind, records) {
       if (spec.k === '#م') val = String(n + 1);
       else {
         val = String(rec[spec.k] == null ? '' : rec[spec.k]).trim();
+        if (dat.has(col)) {
+          const ser = dateSerial(val);
+          if (ser !== null) { cells.push(`<c r="${ref}"${st}><v>${ser}</v></c>`); continue; }
+        }
         if (val && spec.t) val = TRANSFORM[spec.t](val);
       }
       if (!val) cells.push(`<c r="${ref}"${st}/>`);
