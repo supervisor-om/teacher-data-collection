@@ -206,8 +206,10 @@ tr:hover td.miss{background:#fbe6e4}
 
 .toast{position:fixed;inset-inline:0;bottom:22px;z-index:60;padding:0 14px;
   display:flex;justify-content:center;pointer-events:none}
-.toast span{max-width:420px;padding:10px 16px;background:var(--ink);color:#fff;
-  border-radius:var(--r);font-size:13px;line-height:1.5;box-shadow:0 6px 24px rgba(20,28,38,.22)}
+.toast span{max-width:460px;padding:10px 16px;background:var(--ink);color:#fff;
+  border-radius:var(--r);font-size:13px;line-height:1.5;box-shadow:0 6px 24px rgba(20,28,38,.22);
+  pointer-events:auto}
+.toast a{color:#a9cbff;text-decoration:underline;white-space:nowrap}
 
 @media(max-width:640px){
   .topbar__in,.wrap{padding-left:14px;padding-right:14px}
@@ -1252,9 +1254,9 @@ function waText(r) {
    رسالة إليه، فلا تُرسَل إلى رقمه هو. */
 const WA_TO = "96899271777";
 
-/* إشعار قصير أسفل الصفحة يزول وحده. */
+/* إشعار قصير أسفل الصفحة يزول وحده، وقد يحمل رابطاً فيمهل أطول. */
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, linkText, href) {
   let box = document.getElementById("toast");
   if (!box) {
     box = document.createElement("div");
@@ -1263,27 +1265,58 @@ function toast(msg) {
     box.innerHTML = "<span></span>";
     document.body.appendChild(box);
   }
-  box.firstChild.textContent = msg;
+  const line = box.firstChild;
+  line.textContent = msg;
+  if (href) {
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = linkText;
+    line.appendChild(document.createTextNode(" "));
+    line.appendChild(a);
+  }
   box.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { box.hidden = true; }, 5000);
+  toastTimer = setTimeout(() => { box.hidden = true; }, href ? 10000 : 5000);
 }
 
-/* wa.me محجوبٌ على بعض شبكات السلطنة، فيردّ المتصفّح بأنه لم يجد الخادم.
-   api.whatsapp.com نقطةُ واتساب الرسمية تفتح المحادثة نفسها ولا تُحجب.
-   وتُنسخ الرسالة كذلك ليلصقها المشرف بيده إن تعذّر فتح واتساب أصلاً. */
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+/* wa.me محجوبٌ على بعض شبكات السلطنة فيردّ المتصفّح بأنه لم يجد الخادم،
+   فلا يُستعمل.
+
+   الهاتف: نقطة واتساب الرسمية api.whatsapp.com تسلّم المحادثة إلى
+   التطبيق مباشرةً.
+
+   الحاسوب: تلك النقطة تعرض صفحةً وسيطة تقود إلى واتساب ويب لا إلى
+   التطبيق، فيُنادى التطبيق بنظامه الخاص whatsapp: — لا صفحة وسيطة ولا
+   شبكة. ومن لا تطبيق عنده يفتح واتساب ويب من رابط الإشعار.
+
+   وتُنسخ الرسالة في الحالين ليلصقها المشرف بيده إن تعذّر كلُّ ذلك. */
 function waOpen(id) {
   const r = byId(id);
   if (!r) return;
   const msg = waText(r);
+  const q = "phone=" + WA_TO + "&text=" + encodeURIComponent(msg);
   let copied = null;
   try { copied = navigator.clipboard.writeText(msg); } catch (e) {}
-  window.open(
-    "https://api.whatsapp.com/send?phone=" + WA_TO + "&text=" + encodeURIComponent(msg),
-    "_blank", "noopener");
+
+  if (IS_MOBILE) {
+    window.open("https://api.whatsapp.com/send?" + q, "_blank", "noopener");
+    if (copied) copied.then(
+      () => toast("نُسخت الرسالة أيضاً — إن لم يفتح واتساب فالصقها بنفسك."),
+      () => {});
+    return;
+  }
+
+  location.href = "whatsapp://send?" + q;
+  const web = "https://web.whatsapp.com/send/?" + q;
+  const say = (t) => toast(t, "لم يفتح؟ افتح واتساب ويب", web);
   if (copied) copied.then(
-    () => toast("نُسخت الرسالة أيضاً — إن لم يفتح واتساب فالصقها بنفسك."),
-    () => {});
+    () => say("فُتح تطبيق واتساب، ونُسخت الرسالة أيضاً."),
+    () => say("فُتح تطبيق واتساب."));
+  else say("فُتح تطبيق واتساب.");
 }
 
 const ICON_WA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
