@@ -96,6 +96,41 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /* --------------------------------- النسخة السحابيّة للتقارير -- */
+    /* تقارير الزيارات الإشرافية والمدرسية لموقع supervisor-mct.com:
+       لكلّ مشرفٍ مسارٌ باسم معرّفه، ولا يُكتب فيه إلّا تقريرٌ بشكلٍ معروف.
+       المعرّف ثابتٌ لا يتبدّل بتغيير الرمز، فلا يفقد المشرف أرشيفه.
+
+       الحذف علامةٌ تُرفع (deleted) لا وثيقةٌ تُمحى: بلا ذلك يعيد جهازُ
+       المشرف الآخر رفعَ ما حذفه فيعود التقرير. ولذلك delete ممنوع.
+
+       وهذا **فصلٌ تنظيميّ لا قفل**، كحال مجموعة المعلمين: القراءة
+       مفتوحةٌ حتى تُفعَّل المصادقة — المرحلة ٢ في آخر الملف. */
+    match /reports/{sup}/items/{docId} {
+      function d() { return request.resource.data; }
+      function supOk() { return sup.matches('^[a-z][a-z0-9-]{1,30}$'); }
+      function shape() {
+        return d().keys().hasOnly(['key', 'kind', 'supervisor', 'updatedAt', 'json', 'deleted'])
+            && d().keys().hasAll(['key', 'kind', 'updatedAt'])
+            && d().key is string
+            && d().key.size() > 0
+            && d().key.size() <= 200
+            && d().kind in ['supervision', 'school']
+            && d().updatedAt is number
+            && (!('supervisor' in d()) || (d().supervisor is string && d().supervisor.size() <= 80))
+            && (!('json' in d())       || (d().json is string && d().json.size() <= 300000))
+            && (!('deleted' in d())    || d().deleted is bool);
+      }
+      allow read: if supOk();
+      allow create, update: if supOk() && shape();
+      allow delete: if false;
+    }
+
+    /* لا وثيقة في جذر التقارير: فلا تُسرد مسارات المشرفين منه */
+    match /reports/{sup} {
+      allow read, write: if false;
+    }
+
     /* ------------------------------------------------ ما عدا ذلك -- */
     /* يمنع استعمال قاعدة البيانات مخزناً مجانياً لأي محتوى غريب */
     match /{document=**} {
