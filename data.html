@@ -204,6 +204,11 @@ tr:hover td.miss{background:#fbe6e4}
 .state--err{color:var(--danger)}
 .foot{margin:16px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
 
+.toast{position:fixed;inset-inline:0;bottom:22px;z-index:60;padding:0 14px;
+  display:flex;justify-content:center;pointer-events:none}
+.toast span{max-width:420px;padding:10px 16px;background:var(--ink);color:#fff;
+  border-radius:var(--r);font-size:13px;line-height:1.5;box-shadow:0 6px 24px rgba(20,28,38,.22)}
+
 @media(max-width:640px){
   .topbar__in,.wrap{padding-left:14px;padding-right:14px}
   .brand__sub{display:none}
@@ -211,7 +216,7 @@ tr:hover td.miss{background:#fbe6e4}
 }
 
 @media print{
-  .topbar,.bar,.note,.foot{display:none !important}
+  .topbar,.bar,.note,.foot,.toast{display:none !important}
   .wrap{padding:0;max-width:none}
   .scroll{max-height:none;overflow:visible;border:0}
   thead th{position:static;background:#fff;border-bottom:1.5px solid #000}
@@ -1247,11 +1252,38 @@ function waText(r) {
    رسالة إليه، فلا تُرسَل إلى رقمه هو. */
 const WA_TO = "96899271777";
 
+/* إشعار قصير أسفل الصفحة يزول وحده. */
+let toastTimer = 0;
+function toast(msg) {
+  let box = document.getElementById("toast");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "toast";
+    box.className = "toast";
+    box.innerHTML = "<span></span>";
+    document.body.appendChild(box);
+  }
+  box.firstChild.textContent = msg;
+  box.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { box.hidden = true; }, 5000);
+}
+
+/* wa.me محجوبٌ على بعض شبكات السلطنة، فيردّ المتصفّح بأنه لم يجد الخادم.
+   api.whatsapp.com نقطةُ واتساب الرسمية تفتح المحادثة نفسها ولا تُحجب.
+   وتُنسخ الرسالة كذلك ليلصقها المشرف بيده إن تعذّر فتح واتساب أصلاً. */
 function waOpen(id) {
   const r = byId(id);
   if (!r) return;
-  const text = encodeURIComponent(waText(r));
-  window.open("https://wa.me/" + WA_TO + "?text=" + text, "_blank", "noopener");
+  const msg = waText(r);
+  let copied = null;
+  try { copied = navigator.clipboard.writeText(msg); } catch (e) {}
+  window.open(
+    "https://api.whatsapp.com/send?phone=" + WA_TO + "&text=" + encodeURIComponent(msg),
+    "_blank", "noopener");
+  if (copied) copied.then(
+    () => toast("نُسخت الرسالة أيضاً — إن لم يفتح واتساب فالصقها بنفسك."),
+    () => {});
 }
 
 const ICON_WA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
