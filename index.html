@@ -454,8 +454,9 @@ const AREAS = {
 };
 
 /* الحقل التابع ← أبوه وقائمة مناطقه */
-/* الأعزب لا أبناء له، فحقل العدد لا يُعرض إلا لهاتين. */
-const MARRIED = ['متزوج', 'متزوجة'];
+/* الأعزب لا أبناء له، فحقل العدد لا يُعرض إلا لمن قد يكون له أبناء:
+   المتزوّج والمنفصل. */
+const WITH_CHILDREN = ['متزوج', 'متزوجة', 'منفصل', 'منفصلة'];
 
 const DEPENDS = {
   schoolLocation_private: { parent: 'wilayat_private', map: AREAS }
@@ -464,7 +465,7 @@ const DEPENDS = {
 const OPT = {
   /* ولايات محافظة مسقط — الملف لتعليميتها */
   wilayat:    ['مسقط','مطرح','بوشر','السيب','العامرات','قريات'],
-  marital:    ['متزوج','اعزب','متزوجة','عزباء'],
+  marital:    ['متزوج','اعزب','منفصل','متزوجة','عزباء','منفصلة'],
   language:   ['عربي','انجليزي','عربي وانجليزي'],
   curriculum: ['منهاج حكومي','منهاج خاص','منهاج حكومي + خاص'],
   evaluation: ['تقويم حكومي','تقويم خاص','تقويم حكومي + خاص'],
@@ -493,7 +494,7 @@ const GOV = [
     { id:'teacherPhone_gov', name:'الهاتف', col:4, type:'tel', num:true, im:'tel', ac:'tel' },
     { id:'maritalStatus_gov',name:'الحالة الاجتماعية', col:4, type:'select', ph:'الرجاء التحديد', options:OPT.marital },
     { id:'children_gov',     name:'عدد الأبناء', col:4, type:'select', ph:'اختر العدد',
-      options:range(0, 15), optional:true, showWhen:{ field:'maritalStatus_gov', values:MARRIED },
+      options:range(0, 15), optional:true, showWhen:{ field:'maritalStatus_gov', values:WITH_CHILDREN },
       help:'يُضاف إلى الحالة الاجتماعية: متزوج +2' },
     { id:'email_gov',        name:'البريد الالكتروني', col:6, type:'email', ac:'email', ph:'salim@moe.om', help:'البريد الوزاري إن أمكن.' }
   ]},
@@ -1157,7 +1158,7 @@ function mergeMarital(values) {
   if (values['نوع المدرسة'] !== 'حكومية') { delete values['عدد الأبناء']; return values; }
   const kids = values['عدد الأبناء'];
   delete values['عدد الأبناء'];
-  if (!base || MARRIED.indexOf(base) === -1) return values;
+  if (!base || WITH_CHILDREN.indexOf(base) === -1) return values;
   const n = parseInt(String(kids ?? '').replace(/[^0-9]/g, ''), 10);
   if (n > 0) values['الحالة الاجتماعية'] = base + ' +' + n;
   return values;
