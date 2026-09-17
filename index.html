@@ -999,7 +999,24 @@ function omaniName(raw) {
      اسم الأسرة كما في «أحمد بن سالم بن الرواس» */
   const kept = merged.filter((w) => w !== 'بن' && w !== 'بنت');
   if (kept.length < 2) return { ok: true, value: kept.join(' ') };
-  return { ok: true, value: kept.slice(0, -1).join(' ' + link + ' ') + ' ' + kept[kept.length - 1] };
+  /* «بنت» بين المعلّمة وأبيها وحده؛ الأب والأجداد ذكورٌ فبينهم «بن»:
+     «فاطمة بنت راشد بن محمد». كانت تُكرَّر في كلّ موضع فكُتب «بنت راشد
+     بنت محمد» في ثلاثةٍ وثمانين سجلاً بين 10 و15 سبتمبر 2026. */
+  const given = kept.slice(0, -1);
+  const joined = given.reduce((acc, w, i) => i === 0 ? w : acc + ' ' + (i === 1 ? link : 'بن') + ' ' + w, '');
+  return { ok: true, value: joined + ' ' + kept[kept.length - 1] };
+}
+
+/* رقم الملف أرقامٌ فقط. كان بلا قاعدة، فحُفظ في ثلاثة سجلاتٍ ومعه نصّ الصفحة
+   كلّه («16179278 يمكنك استخراجه من البوابة التعليمية…»)، وفي ستّة عشر بأرقامٍ
+   هنديّة. يُردّ النصّ ولا يُنتزع منه الرقم: نصّ الصفحة فيه أرقامٌ أيضاً. */
+function cleanFileNumber(raw) {
+  const s = tidyDigits(String(raw ?? '')).replace(/\s+/g, '');
+  if (!s) return { ok: true, value: '' };
+  /* المرفوض يُترك كما كُتب: applyCleaner يكتب القيمة في الحقل إن تغيّرت */
+  if (!/^\d+$/.test(s)) return { ok: false, value: String(raw).trim(), why: 'رقم الملف أرقامٌ فقط.' };
+  if (s.length < 6 || s.length > 10) return { ok: false, value: s, why: 'رقم الملف من ٦ إلى ١٠ خانات.' };
+  return { ok: true, value: s };
 }
 
 /* تاريخ ميلاد يجعل العمر خارج 20–65: خمسة سجلات كُتبت بميلادٍ في
@@ -1024,6 +1041,7 @@ const CLEANERS = {
   otherPhone_private:   (v) => cleanPhone(v, false),
   civilId_gov:          cleanCivilId,
   dob_gov:              cleanDob,
+  fileNumber_gov:       cleanFileNumber,
   teacherCount_gov:     (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
   teacherCount_private: (v) => cleanCount(v, 20, 'عدد معلمي الرياضة'),
   financialGrade_gov:   (v) => cleanCount(v, 20, 'الدرجة المالية'),
