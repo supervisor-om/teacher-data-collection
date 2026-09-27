@@ -433,7 +433,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
       <div class="topbar__act">
         <button type="button" class="btn" id="reload" title="إعادة التحميل">تحديث</button>
         <button type="button" class="btn" id="print">طباعة</button>
-        <button type="button" class="btn" id="wa-all" title="رسالة واحدة للمشرف الأوّل: معلّموك بمدارسهم وأنصبتهم">رسالة المعلمين</button>
+        <button type="button" class="btn" id="wa-all" title="رسالة للمشرف الأوّل بمعلّمي التبويب المفتوح وحده (حكومية أو خاصة) بمدارسهم وأنصبتهم">رسالة المعلمين</button>
         <button type="button" class="btn btn--solid" id="export">تصدير Excel</button>
         <button type="button" class="btn" id="logout" title="إنهاء الجلسة">خروج</button>
       </div>
@@ -2047,15 +2047,15 @@ el('reveal').addEventListener('click', () => {
    تحمل الاسم وعدد الحصص وحدهما: لا رقم مدنيّ ولا هاتف ولا بريد. هي رسالةٌ
    تمرّ في تطبيقٍ خارجيّ، فلا يخرج فيها ما يُعدّ بياناً شخصيّاً.
 
-   النطاق: ما تراه التصفية الآن (المشرف، المدرسة، البحث، الناقص) لكن من
-   النوعين معاً — الحكوميّ والخاصّ — فالتبويب طريقة عرضٍ لا تقسيمٌ لقائمة
-   المشرف، والمطلوب رسالةٌ واحدة لا رسالةٌ لكلّ تبويب.
+   النطاق: التبويب المفتوح وحده — الحكوميّة رسالةٌ والخاصّة رسالةٌ أخرى، لا
+   تُدمجان (طلب المستخدم). ومعه ما تراه التصفية الآن: المشرف والمدرسة
+   والبحث والناقص.
    ════════════════════════════════════════════════════════════════════ */
 function waSummaryRows() {
   const q = norm(el('q').value);
   const school = el('school').value;
   const sup = scope || el('sup').value;
-  let rows = ALL.filter((r) => inScope(r));
+  let rows = ALL.filter((r) => r['نوع المدرسة'] === type && inScope(r));
   if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
   if (school) rows = rows.filter((r) => schoolKey(r['المدرسة']) === school);
   if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
@@ -2087,7 +2087,10 @@ function waSummaryText(rows) {
 
   const who = scope || el('sup').value || 'كل المشرفين';
   const count = schools.reduce((n, sc) => n + sc.list.length, 0);
-  const out = ['👤 ' + who + ' — ' + count + ' معلماً في ' + schools.length + ' مدرسة', ''];
+  /* النوع في الترويسة: الرسالتان تصلان المشرف الأوّل متتابعتين فيلزم تمييزهما */
+  const kind = type === 'خاصة' ? 'المدارس الخاصة' : 'المدارس الحكومية';
+  const out = ['👤 ' + who + ' — ' + kind,
+               count + ' معلماً في ' + schools.length + ' مدرسة', ''];
 
   schools.forEach((sc) => {
     out.push('🏫 ' + sc.name);
