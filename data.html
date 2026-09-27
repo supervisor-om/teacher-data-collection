@@ -220,6 +220,19 @@ tr:hover td.miss{background:#fbe6e4}
   .topbar__in,.wrap{padding-left:14px;padding-right:14px}
   .brand__sub{display:none}
   .scroll{max-height:calc(100vh - 260px)}
+  /* أزرار الشريط تفيض عن الشاشة الضيّقة فتُزيح الصفحة أفقيّاً: تنزلق
+     وحدها بدل أن تجرّ الصفحة معها، وتختصر تسمياتها الطويلة */
+  /* flex:none يجعلها تأخذ عرض محتواها فتوسّع الصفّ — تُصغَّر وتنزلق داخلها */
+  .topbar__act{flex:1 1 auto;min-width:0;justify-content:flex-end;
+    overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .topbar__act::-webkit-scrollbar{display:none}
+  .topbar__act .btn{white-space:nowrap;flex:none}
+  #wa-all::after{content:''}
+}
+@media(max-width:480px){
+  /* «رسالة المعلمين» أطول تسمية في الشريط — تُختصر حيث تضيق الشاشة */
+  #wa-all{font-size:0}
+  #wa-all::after{content:'رسالة';font-size:13px}
 }
 
 @media print{
@@ -420,6 +433,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
       <div class="topbar__act">
         <button type="button" class="btn" id="reload" title="إعادة التحميل">تحديث</button>
         <button type="button" class="btn" id="print">طباعة</button>
+        <button type="button" class="btn" id="wa-all" title="رسالة واحدة للمشرف الأوّل: معلّموك بمدارسهم وأنصبتهم">رسالة المعلمين</button>
         <button type="button" class="btn btn--solid" id="export">تصدير Excel</button>
         <button type="button" class="btn" id="logout" title="إنهاء الجلسة">خروج</button>
       </div>
@@ -2026,6 +2040,106 @@ el('reveal').addEventListener('click', () => {
 /* التصدير يبني ملف Excel بتنسيق ملفَّي المشرف — بقالبه وخطوطه وحدوده
    وإعداد طباعته — لا جدولاً خاماً. القيم فيه كاملة غير مخفيّة، فالملف
    يُحفظ على جهاز المشرف. */
+/* ════════════════════════════════════════════════════════════════════
+   رسالةٌ واحدةٌ للمشرف الأوّل: معلّمو المشرف بمدارسهم وأنصبتهم — بديلُ
+   إرسال بطاقةٍ لكلّ معلّم على حدة (waOpen).
+
+   تحمل الاسم وعدد الحصص وحدهما: لا رقم مدنيّ ولا هاتف ولا بريد. هي رسالةٌ
+   تمرّ في تطبيقٍ خارجيّ، فلا يخرج فيها ما يُعدّ بياناً شخصيّاً.
+
+   النطاق: ما تراه التصفية الآن (المشرف، المدرسة، البحث، الناقص) لكن من
+   النوعين معاً — الحكوميّ والخاصّ — فالتبويب طريقة عرضٍ لا تقسيمٌ لقائمة
+   المشرف، والمطلوب رسالةٌ واحدة لا رسالةٌ لكلّ تبويب.
+   ════════════════════════════════════════════════════════════════════ */
+function waSummaryRows() {
+  const q = norm(el('q').value);
+  const school = el('school').value;
+  const sup = scope || el('sup').value;
+  let rows = ALL.filter((r) => inScope(r));
+  if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
+  if (school) rows = rows.filter((r) => schoolKey(r['المدرسة']) === school);
+  if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
+  if (q) rows = rows.filter((r) => (COLS[r['نوع المدرسة']] || []).some((c) => norm(r[c]).includes(q)));
+  return rows;
+}
+
+function waSummaryText(rows) {
+  const groups = new Map();            /* مفتاح المدرسة ← صيغ اسمها ومعلّموها */
+  rows.forEach((r) => {
+    const key = schoolKey(r['المدرسة']);
+    const name = String(r['المدرسة'] == null ? '' : r['المدرسة']).trim();
+    const teacher = String(r['اسم المعلم'] == null ? '' : r['اسم المعلم']).trim();
+    if (!key || !teacher) return;
+    if (!groups.has(key)) groups.set(key, { names: new Map(), list: [] });
+    const g = groups.get(key);
+    if (name) g.names.set(name, (g.names.get(name) || 0) + 1);
+    const load = String(r['عدد الحصص'] == null ? '' : r['عدد الحصص']).trim();
+    g.list.push({ name: teacher, load: /^[0-9]{1,2}$/.test(load) ? load : '' });
+  });
+
+  /* صيغة اسم المدرسة الأكثر ورودًا بين سجلّاتها: المعلّمون يكتبونها صيغاً شتّى */
+  const pickName = (names) => [...names.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const byAr = (a, b) => String(a).localeCompare(String(b), 'ar');
+
+  const schools = [...groups.values()]
+    .map((g) => ({ name: pickName(g.names), list: g.list }))
+    .sort((a, b) => byAr(a.name, b.name));
+
+  const who = scope || el('sup').value || 'كل المشرفين';
+  const count = schools.reduce((n, sc) => n + sc.list.length, 0);
+  const out = ['👤 ' + who + ' — ' + count + ' معلماً في ' + schools.length + ' مدرسة', ''];
+
+  schools.forEach((sc) => {
+    out.push('🏫 ' + sc.name);
+    sc.list.sort((a, b) => byAr(a.name, b.name))
+           .forEach((t) => out.push(t.name + (t.load ? ' (' + t.load + ')' : '')));
+    out.push('');
+  });
+  return out.join('\n').trim();
+}
+
+/* الإرسال بمسار waOpen نفسه: التطبيق على الحاسوب، ونقطة واتساب الرسمية على
+   الهاتف، والنسخ في الحالين احتياطاً. wa.me محجوبٌ على بعض الشبكات. */
+function waSendText(msg) {
+  const q = 'phone=' + WA_TO + '&text=' + encodeURIComponent(msg);
+  let copied = null;
+  try { copied = navigator.clipboard.writeText(msg); } catch (e) {}
+
+  if (IS_MOBILE) {
+    window.open('https://api.whatsapp.com/send?' + q, '_blank', 'noopener');
+    if (copied) copied.then(() => toast('نُسخت الرسالة أيضاً — إن لم يفتح واتساب فالصقها بنفسك.'), () => {});
+    return;
+  }
+  location.href = 'whatsapp://send?' + q;
+  const web = 'https://web.whatsapp.com/send/?' + q;
+  const say = (t) => toast(t, 'لم يفتح؟ افتح واتساب ويب', web);
+  if (copied) copied.then(() => say('فُتح تطبيق واتساب، ونُسخت الرسالة أيضاً.'),
+                          () => say('فُتح تطبيق واتساب.'));
+  else say('فُتح تطبيق واتساب.');
+}
+
+/* حدُّ الرابط: الرسالة تُرمَّز في الرابط، والحرف العربيّ ثلاثة أضعافه مرمَّزاً.
+   قائمة مشرفٍ واحد (نحو خمسين معلّماً) قرابة ٢٠٠٠ حرف — وقائمة الجميع
+   تتجاوز العشرين ألفاً فينهار الرابط. عندها تُنسخ الرسالة ولا تُرسَل. */
+const WA_MAX = 4500;
+
+el('wa-all').addEventListener('click', () => {
+  const rows = waSummaryRows();
+  if (!rows.length) { toast('لا سجلات لإرسالها بهذه التصفية.'); return; }
+
+  const msg = waSummaryText(rows);
+  if (msg.length > WA_MAX) {
+    let copied = null;
+    try { copied = navigator.clipboard.writeText(msg); } catch (e) {}
+    const hint = 'الرسالة طويلة (' + rows.length + ' معلماً) — اختر مشرفاً من القائمة لتقصيرها';
+    if (copied) copied.then(() => toast(hint + '، أو الصقها من الحافظة (نُسخت).'),
+                            () => toast(hint + '.'));
+    else toast(hint + '.');
+    return;
+  }
+  waSendText(msg);
+});
+
 el('export').addEventListener('click', async () => {
   const btn = el('export');
   const label = btn.textContent;
