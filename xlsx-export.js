@@ -102,7 +102,8 @@ export const LAYOUT = {
         "k": "عدد الحصص"
       },
       "K": {
-        "k": "الفصول التي تدرسها"
+        "k": "الفصول التي تدرسها",
+        "t": "grades"
       },
       "L": null,
       "M": {
@@ -264,7 +265,8 @@ export const LAYOUT = {
         "k": "عدد الحصص"
       },
       "M": {
-        "k": "الصفوف التي يدرسها"
+        "k": "الصفوف التي يدرسها",
+        "t": "grades"
       },
       "N": null,
       "O": {
@@ -454,7 +456,39 @@ function dateSerial(v) {
   return Math.round((t - EPOCH) / 86400000);
 }
 
+/* الصفوف التي يدرسها المعلّم كما يكتبها المشرف (طلبه 2026-11-01): المتصلة مدىً بين
+   قوسين «(3-8)»، والمتفرّقة بين قوسين «(2،4،7،9)»، والمختلطة المتصلة أوّلاً ثمّ «+»
+   ثمّ المتفرّقة «(5-8) + (2،11)» — وكلٌّ من الأدنى إلى الأعلى. المخزَّن يبقى كما أرسله
+   المعلّم («3،4،5،6،7،8»)؛ هذه صيغة العرض والتصدير وحدها، في الجدول وواتساب وExcel.
+   ما ليس أرقام صفوفٍ (نصٌّ قديمٌ حرّ مثل «السابع والتاسع»، أو رقمٌ خارج 1–12) يبقى كما كُتب. */
+export function gradesText(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  const d = s.replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+             .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
+  if (/[^0-9\s،,.:;\-–—_()+]/.test(d)) return s;
+  const nums = [];
+  const rest = d.replace(/(\d+)\s*[-–—_]\s*(\d+)/g, (m, a, b) => {
+    const x = Math.min(+a, +b), y = Math.max(+a, +b);
+    for (let n = x; n <= y && n <= 12; n++) nums.push(n);
+    if (y > 12) nums.push(y);
+    return ' ';
+  });
+  for (const m of rest.match(/\d+/g) || []) nums.push(+m);
+  if (!nums.length || nums.some((n) => n < 1 || n > 12)) return s;
+  const runs = [];
+  for (const n of [...new Set(nums)].sort((a, b) => a - b)) {
+    const r = runs[runs.length - 1];
+    if (r && n === r[1] + 1) r[1] = n; else runs.push([n, n]);
+  }
+  const parts = runs.filter((r) => r[1] > r[0]).map((r) => '(' + r[0] + '-' + r[1] + ')');
+  const singles = runs.filter((r) => r[1] === r[0]).map((r) => r[0]);
+  if (singles.length) parts.push('(' + singles.join('،') + ')');
+  return parts.join(' + ');
+}
+
 const TRANSFORM = {
+  grades: gradesText,
   year: (v) => (/^\d{4}$/.test(v) ? v + 'م' : v),
   birthdate: (v) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);

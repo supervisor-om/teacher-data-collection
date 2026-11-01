@@ -661,7 +661,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
          query, where, serverTimestamp, deleteField }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { buildWorkbook } from './xlsx-export.js?v=8cc78c6dcb';
+import { buildWorkbook, gradesText } from './xlsx-export.js?v=136e26a7d7';
 
 /* ==================================================================== *
  *  رمز الدخول
@@ -843,6 +843,14 @@ const SENSITIVE = new Set(['الرقم المدني', 'تاريخ الميلاد
 const NUMERIC = new Set(['الرقم المدني', 'الهاتف', 'هاتف مدير المدرسة', 'هاتف آخر للمدرسة',
                          'رقم الملف', 'سنة التعيين', 'الدرجة المالية', 'عدد الحصص',
                          'عدد معلمي الرياضة', 'تاريخ الميلاد']);
+
+/* الصفوف التي يدرسها تُعرض وتُصدَّر بصيغة المشرف: «(3-8)»، «(2،4،7،9)»، «(5-8) + (2،11)»
+   (gradesText في xlsx-export.js). المخزَّن كما أرسله المعلّم، والبحث يجد الصيغتين. */
+const GRADE_KEYS = new Set(['الفصول التي تدرسها', 'الصفوف التي يدرسها']);
+const cellText = (r, c) => {
+  const v = r[c] == null ? '' : String(r[c]);
+  return GRADE_KEYS.has(c) ? gradesText(v) : v;
+};
 
 /* المفتاح الحالي ← مفتاحه في نسخة أسبق من النموذج */
 const ALIAS = {
@@ -1027,7 +1035,7 @@ function current() {
   if (school) rows = rows.filter((r) => schoolKey(r['المدرسة']) === school);
   if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
   if (q) {
-    rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q)));
+    rows = rows.filter((r) => COLS[type].some((c) => norm(r[c]).includes(q) || (GRADE_KEYS.has(c) && norm(cellText(r, c)).includes(q))));
   }
   const dir = sortDir;
   const byName = (a, b) =>
@@ -1244,7 +1252,7 @@ function render() {
       '<td class="pick"><input type="checkbox" class="pick-one" data-pick="' + r.__id + '"' +
       (picked.has(r.__id) ? ' checked' : '') + '></td>' +
     '<td class="idx">' + (i + 1) + '</td>' + actions(r) + gapCell(r) + cols.map((c) => {
-      const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : (r[c] == null ? '' : String(r[c]));
+      const raw = c === 'المشرف' ? String(r[c] || UNASSIGNED) : cellText(r, c);
       const cls = (c === REF ? 'ref' : '') + (NUMERIC.has(c) ? ' num' : '')
                 + (miss.has(c) ? ' miss' : '');
       if (!raw) return `<td class="${cls}">—</td>`;
@@ -1455,7 +1463,7 @@ function waText(r) {
     : "تحديث قاعدة البيانات:"];
   let n = 0;
   for (const [label, key, noNum] of waRows(t)) {
-    const v = r[key] == null ? "" : String(r[key]).trim();
+    const v = cellText(r, key).trim();
     lines.push(noNum ? `${label} : ${v}` : `${toArabicNum(++n)}.${label}: ${v}`);
   }
   return lines.join("\n");
@@ -2099,7 +2107,7 @@ function waSummaryRows() {
   if (sup) rows = rows.filter((r) => (r['المشرف'] || UNASSIGNED) === sup);
   if (school) rows = rows.filter((r) => schoolKey(r['المدرسة']) === school);
   if (onlyGaps) rows = rows.filter((r) => missingIn(r).length);
-  if (q) rows = rows.filter((r) => (COLS[r['نوع المدرسة']] || []).some((c) => norm(r[c]).includes(q)));
+  if (q) rows = rows.filter((r) => (COLS[r['نوع المدرسة']] || []).some((c) => norm(r[c]).includes(q) || (GRADE_KEYS.has(c) && norm(cellText(r, c)).includes(q))));
   return rows;
 }
 
