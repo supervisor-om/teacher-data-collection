@@ -946,6 +946,16 @@ const schoolKey = (s) => norm(s)
      إحداهما شائع. تُسقطان بمطابقة الكلمة كاملةً فلا تتأثر «ابن رزيق». */
   .split(" ").filter((w) => w !== "بن" && w !== "بنت").join(" ");
 
+/* ترتيب المدارس كما في كشف أسعد (2026-11-23): طلبه «مدارسي مرتّبة أبجديّاً وأريدها مثل هذا الكشف، الترتيب فقط».
+   تُطابَق بـschoolKey فلا يضرّ اختلاف نطاق الصفوف أو «بن». ما ليس في الكشف يأتي بعدها أبجديّاً كما كان. */
+const SCHOOL_ORDER = [
+  'المثنى بن حارثة (8-5)', 'مصعب بن الزبير (8-5)', 'الخوض (12-9)', 'الشيخ سعيد بن حمد الحارثي (9-7)',
+  'محمد بن شيخان السالمي (10-7) ص', 'الشيخ حمدان اليوسفي (6-5) م', 'الشيخ حمدان اليوسفي (10-7) ص',
+  'أنس بن النضر (10-7)', 'الحسن بن هاشم (12-11)', 'الشيخ محمد اللهاتي (8-5)', 'محمد بن علي المنذري (10-5)',
+  'موسى بن النصير (12-9)', 'يزيد الطائي (12-9)'
+].map((n) => schoolKey(n));
+const schoolRank = (k) => { const i = SCHOOL_ORDER.indexOf(k); return i < 0 ? 1e6 : i; };
+
 /* عدّ المدارس بالمفتاح لا بالنصّ الخام */
 const countSchools = (rows) =>
   new Set(rows.map((r) => schoolKey(r["المدرسة"])).filter(Boolean)).size;
@@ -1050,6 +1060,10 @@ function current() {
     if (!x && !y) return byName(a, b);
     if (!x) return 1;
     if (!y) return -1;
+    if (sortKey === 'المدرسة') {
+      const rx = schoolRank(schoolKey(x)), ry = schoolRank(schoolKey(y));
+      if (rx !== ry) return (rx - ry) * dir;
+    }
     const nx = Number(norm(x)), ny = Number(norm(y));
     const c = (!isNaN(nx) && !isNaN(ny)) ? (nx - ny) * dir : x.localeCompare(y, 'ar') * dir;
     /* المتساوون في عمود الفرز يُرتَّبون بالاسم لا بترتيب الإدخال */
@@ -1204,7 +1218,7 @@ function fillSchools() {
   const absent = type === 'حكومية' ? absentBySchool(mine) : new Map();
   const keepSchool = el('school').value;
   const schoolOpts = [...byKey.entries()]
-    .sort((a, b) => a[1].label.localeCompare(b[1].label, 'ar'));
+    .sort((a, b) => (schoolRank(a[0]) - schoolRank(b[0])) || a[1].label.localeCompare(b[1].label, 'ar'));
   el('school').innerHTML = '<option value="">كل المدارس</option>' +
     schoolOpts.map(([k, g]) => {
       const a = absent.get(k);
@@ -2131,7 +2145,7 @@ function waSummaryText(rows) {
 
   const schools = [...groups.values()]
     .map((g) => ({ name: pickName(g.names), list: g.list }))
-    .sort((a, b) => byAr(a.name, b.name));
+    .sort((a, b) => (schoolRank(schoolKey(a.name)) - schoolRank(schoolKey(b.name))) || byAr(a.name, b.name));
 
   const who = scope || el('sup').value || 'كل المشرفين';
   const count = schools.reduce((n, sc) => n + sc.list.length, 0);
