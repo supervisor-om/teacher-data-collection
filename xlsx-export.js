@@ -525,7 +525,7 @@ function inlineText(val, size) {
     `<r>${latin ? rpr : ''}<t xml:space="preserve">${esc(t)}</t></r>`).join('');
 }
 
-function buildRows(kind, records) {
+function buildRows(kind, records, sepMap, sepAt) {
   const L = LAYOUT[kind];
   const num = new Set(L.numeric);
   const dat = new Set(L.dates || []);
@@ -536,7 +536,11 @@ function buildRows(kind, records) {
     const cells = [];
     for (let i = 1; i <= L.ncols; i++) {
       const col = colName(i);
-      const st = ` s="${L.styles[col] || '0'}"`;
+      const base = L.styles[col] || '0';
+      /* خطٌّ عريض بين المدارس: أوّل صفّ في المدرسة له حدّ علويّ عريض، وآخر صفّ في سابقتها حدّ سفليّ عريض
+         (يُوضعان معاً فلا يُخفي أحدُهما الآخر) */
+      const sty = sepAt && sepAt[n] && sepMap ? (sepMap[sepAt[n] + base] || base) : base;
+      const st = ` s="${sty}"`;
       const ref = `${col}${rn}`;
       const spec = L.cols[col];
       let val;
@@ -579,8 +583,51 @@ function assertStyles(kind, entries, dec) {
     throw new Error('نسخة قديمة محفوظة في المتصفّح. حدّث الصفحة (Ctrl+F5) ثم أعد التصدير.');
 }
 
+
+/* ---------------------------------------------------- فاصل المدارس -- */
+/* يُنسخ نمطُ الخليّة بحدٍّ علويّ أو سفليٍّ عريض ويُضاف إلى styles.xml. لا يغيّر النمط الأصليّ. */
+function addSeparatorStyles(xml, usedStyles) {
+  const bi = xml.indexOf('<borders'), be = xml.indexOf('</borders>');
+  const ci = xml.indexOf('<cellXfs'), ce = xml.indexOf('</cellXfs>');
+  if (bi < 0 || be < 0 || ci < 0 || ce < 0) return { xml, map: null };
+  const borders = xml.slice(xml.indexOf('>', bi) + 1, be).match(/<border\b[^>]*?(?:\/>|>[\s\S]*?<\/border>)/g) || [];
+  const xfs = xml.slice(xml.indexOf('>', ci) + 1, ce).match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g) || [];
+  const withEdge = (b, tag, style) => {
+    const edge = `<${tag} style="${style}"><color indexed="64"/></${tag}>`;
+    const re = new RegExp(`<${tag}\\b[^>]*?(?:\\/>|>[\\s\\S]*?<\\/${tag}>)`);
+    return re.test(b) ? b.replace(re, edge) : b.replace('</border>', edge + '</border>');
+  };
+  const newBorders = [], newXfs = [], map = {};
+  for (const id of usedStyles) {
+    const xf = xfs[+id];
+    if (!xf) continue;
+    const bm = /borderId="(\d+)"/.exec(xf);
+    const ob = bm ? borders[+bm[1]] : null;
+    if (!ob) continue;
+    /* مجموعات (حدّ علويّ، حدّ سفليّ): «ت»=عريض، «ر»=رفيع. عريض/عريض هو الأصل فلا يُنسخ. */
+    for (const combo of ['رر', 'عر', 'رع']) {
+      let nb = ob;
+      nb = withEdge(nb, 'top', combo[0] === 'ع' ? 'thick' : 'thin');
+      nb = withEdge(nb, 'bottom', combo[1] === 'ع' ? 'thick' : 'thin');
+      newBorders.push(nb);
+      const bid = borders.length + newBorders.length - 1;
+      let nx = xf.replace(/borderId="\d+"/, `borderId="${bid}"`);
+      if (!/applyBorder=/.test(nx)) nx = nx.replace(/<xf\b/, '<xf applyBorder="1"');
+      newXfs.push(nx);
+      map[combo + id] = String(xfs.length + newXfs.length - 1);
+    }
+  }
+  xml = xml.slice(0, be) + newBorders.join('') + xml.slice(be);
+  xml = xml.replace(/<borders count="\d+"/, `<borders count="${borders.length + newBorders.length}"`);
+  const ce2 = xml.indexOf('</cellXfs>');
+  xml = xml.slice(0, ce2) + newXfs.join('') + xml.slice(ce2);
+  xml = xml.replace(/<cellXfs count="\d+"/, `<cellXfs count="${xfs.length + newXfs.length}"`);
+  return { xml, map };
+}
+
 /* ------------------------------------------------------------ الواجهة -- */
-export async function buildWorkbook(kind, records, baseUrl = '') {
+/* opts.groupOf(سجلّ) ← معرّفُ مجموعة (المدرسة): يُرسم خطٌّ عريض حيث يتغيّر المعرّف بين صفّين متتاليين. */
+export async function buildWorkbook(kind, records, baseUrl = '', opts = {}) {
   const L = LAYOUT[kind];
   const res = await fetch(baseUrl + L.file, { cache: 'no-store' });
   if (!res.ok) throw new Error('تعذّر تحميل القالب (' + res.status + ')');
@@ -590,13 +637,30 @@ export async function buildWorkbook(kind, records, baseUrl = '') {
   assertStyles(kind, entries, dec);
 
   const enc = new TextEncoder();
+  /* حدود الصفوف: القالب كلّه بحدودٍ عريضة فلا يتميّز فاصلٌ عريض، فتصير الحدود داخل المدرسة رفيعة
+     وتبقى العريضة عند حدود المدرسة وحدها. sepAt[n] = 'رر' | 'عر' | 'رع' (علويّ+سفليّ)؛ العريض/العريض هو الأصل. */
+  const sepAt = {};
+  if (typeof opts.groupOf === 'function') {
+    for (let n = 0; n < records.length; n++) {
+      const top = n === 0 || opts.groupOf(records[n]) !== opts.groupOf(records[n - 1]) ? 'ع' : 'ر';
+      const bot = n === records.length - 1 || opts.groupOf(records[n]) !== opts.groupOf(records[n + 1]) ? 'ع' : 'ر';
+      if (top + bot !== 'عع') sepAt[n] = top + bot;
+    }
+  }
+  let sepMap = null;
+  if (Object.keys(sepAt).length) {
+    const st = entries.find((e) => e.name === 'xl/styles.xml');
+    const used = Object.values(LAYOUT[kind].styles);
+    const r = addSeparatorStyles(dec.decode(st.data), [...new Set(used)]);
+    if (r.map) { st.data = enc.encode(r.xml); sepMap = r.map; }
+  }
   const last = Math.max(L.firstRow + records.length - 1, L.headerRow);
   const endCol = colName(L.ncols);
 
   for (const e of entries) {
     if (e.name === 'xl/worksheets/sheet1.xml') {
       let xml = dec.decode(e.data);
-      xml = xml.replace('</sheetData>', buildRows(kind, records) + '</sheetData>');
+      xml = xml.replace('</sheetData>', buildRows(kind, records, sepMap, sepAt) + '</sheetData>');
       xml = xml.replace(/<dimension ref="([A-Z]+)\d+:[A-Z]+\d+"\/>/,
                         (_m, c) => `<dimension ref="${c}1:${endCol}${last}"/>`);
       /* الوسم يحمل سمة xr:uid في القالبين، وكان التعبير يشترط انتهاءه
