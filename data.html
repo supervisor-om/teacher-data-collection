@@ -2216,7 +2216,12 @@ el('export').addEventListener('click', async () => {
       el('note').textContent = 'لا سجلات لتصديرها بهذه التصفية.';
       return;
     }
-    const blob = await buildWorkbook(type, rows);
+    /* ملفّ Excel بترتيب كشف أسعد دائماً، أيّاً كان عمود الفرز على الشاشة (2026-11-23):
+       مدارس الكشف بترتيبه، ثمّ بقيّة المدارس أبجديّاً، والمعلّمون داخل المدرسة بترتيبهم الحاليّ. */
+    const ordered = rows.map((r, i) => ({ r, i, k: schoolKey(r['المدرسة']) }))
+      .sort((a, b) => (schoolRank(a.k) - schoolRank(b.k)) || a.k.localeCompare(b.k, 'ar') || (a.i - b.i))
+      .map((x) => x.r);
+    const blob = await buildWorkbook(type, ordered);
     const who = scope || el('sup').value || 'الجميع';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
