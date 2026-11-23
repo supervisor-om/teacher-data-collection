@@ -47,9 +47,10 @@ service cloud.firestore {
          الواجهة لا أثراً جانبيّاً. */
       allow update: if wellFormed();
 
-      /* مفتوحان حتى تُضاف المصادقة — انظر المرحلة ٢ */
+      /* القراءة مفتوحة حتى تُضاف المصادقة — انظر المرحلة ٢.
+         الحذف النهائي مُغلق (2026-11-23): يحذف data.html بعلامة deleted. */
       allow read:   if true;
-      allow delete: if true;
+      allow delete: if false;
     }
 
     /* ------------------------------------------ رموز دخول المشرفين -- */
