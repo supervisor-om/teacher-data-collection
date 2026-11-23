@@ -1016,6 +1016,8 @@ async function load() {
     const snap = await getDocs(scope ? query(col, where('المشرف', '==', scope)) : col);
     ALL = [];
     snap.forEach((d) => {
+      /* الحذف مؤقّت: السجلّ يبقى في القاعدة بعلامة deleted ولا يظهر هنا */
+      if (d.data().deleted) return;
       const row = Object.assign({}, d.data());
       /* نسخة أسبق من النموذج سمّت حقلين تسمية أخرى، وواحدٌ وعشرون سجلاً
          ما زال يحملها. تُقرأ هنا في مكانها الجديد فلا يظهر العمود فارغاً،
@@ -1848,10 +1850,8 @@ async function doDeleteAll() {
   for (const r of rows) {
     btn.textContent = "جارٍ الحذف… " + (done + failed + 1) + "/" + rows.length;
     try {
-      await deleteDoc(doc(db, "teachers", r.__id));
-      const copy = {};
-      for (const k of Object.keys(r)) if (k !== "__id" && k !== REF) copy[k] = r[k];
-      copies.push(copy);
+      await softDelete(r.__id);
+      copies.push(r.__id);
       ALL = ALL.filter((x) => x !== r);
       done++;
     } catch (err) { console.error("[deleteAll] تعذّر حذف سجلّ:", err); failed++; }
@@ -1872,10 +1872,10 @@ async function undoDeleteAll() {
   const btn = el("undo-btn");
   btn.disabled = true;
   let ok = 0;
-  for (const c of bulkDeleted) {
+  for (const id of bulkDeleted) {
     btn.textContent = "جارٍ الاسترجاع… " + (ok + 1) + "/" + bulkDeleted.length;
     try {
-      await addDoc(collection(db, "teachers"), Object.assign({}, c, { restoredAt: serverTimestamp() }));
+      await softRestore(id);
       ok++;
     } catch (err) { console.error("[undoAll] تعذّر الاسترجاع:", err); }
   }
@@ -1939,6 +1939,17 @@ async function saveNewCode() {
   }
 }
 
+/* الحذف مؤقّت: علامة لا مسح. من حذف ومتى يُحفظان في الحقل نفسه
+   (حقلٌ واحد حتى لا يتجاوز السجلّ حدّ الأربعين مفتاحاً في القواعد). */
+async function softDelete(id) {
+  await updateDoc(doc(db, 'teachers', id),
+    { deleted: { by: scope || 'المدير', at: Date.now() } });
+}
+async function softRestore(id) {
+  await updateDoc(doc(db, 'teachers', id),
+    { deleted: deleteField(), restoredAt: serverTimestamp() });
+}
+
 function askDelete(id) {
   const r = byId(id);
   if (!mayTouch(r)) return;
@@ -1958,11 +1969,10 @@ async function doDelete() {
   btn.textContent = 'جارٍ الحذف…';
   const gone = deleting;
   try {
-    await deleteDoc(doc(db, 'teachers', gone.__id));
-    /* نسخة كاملة تبقى في الذاكرة ليصحّ التراجع. تُفقد بإغلاق الصفحة. */
-    const copy = {};
-    for (const k of Object.keys(gone)) if (k !== '__id' && k !== REF) copy[k] = gone[k];
-    lastDeleted = copy;
+    await softDelete(gone.__id);
+    /* السجلّ باقٍ في القاعدة بعلامة، فيكفي معرّفه للتراجع */
+    const copy = { 'اسم المعلم': gone['اسم المعلم'] };
+    lastDeleted = gone.__id;
     bulkDeleted = null;   /* وإلّا وجّه زر التراجع إلى الاسترجاع الجماعي خطأً */
     ALL = ALL.filter((r) => r !== gone);
     closeDelete();
@@ -1985,9 +1995,7 @@ async function undoDelete() {
   btn.disabled = true;
   btn.textContent = 'جارٍ الاسترجاع…';
   try {
-    /* يُعاد السجلّ بمعرّف جديد — محتواه كما كان، ومعه ختم استرجاع. */
-    await addDoc(collection(db, 'teachers'),
-                 Object.assign({}, lastDeleted, { restoredAt: serverTimestamp() }));
+    await softRestore(lastDeleted);
     lastDeleted = null;
     bulkDeleted = null;
     el('undo').hidden = true;

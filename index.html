@@ -1624,7 +1624,8 @@ form.addEventListener('submit', async (e) => {
       /* تُحدَّث المفاتيح المعروفة وحدها، وتُحذف منها ما تُرك فارغاً هذه
          المرّة. سجلّات قديمة تحمل حقولاً من نسخة أسبق للنموذج، والاستبدال
          الكامل كان سيمحوها. */
-      const patch = { updatedAt: serverTimestamp() };
+      /* من حُذف مؤقّتاً ثمّ أرسل استمارته فقد عاد: تُرفع علامة الحذف */
+      const patch = { updatedAt: serverTimestamp(), deleted: deleteField() };
       for (const key of KEYS) patch[key] = (key in values) ? values[key] : deleteField();
       await updateDoc(doc(db, 'teachers', existing.id), patch);
     } else {
